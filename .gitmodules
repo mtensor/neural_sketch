@@ -1,0 +1,9 @@
+[submodule "pinn"]
+	path = pinn
+	url = git@github.com:insperatum/pinn.git
+[submodule "pregex"]
+	path = pregex
+	url = git@github.com:insperatum/pregex.git
+[submodule "vhe"]
+	path = vhe
+	url = git@github.com:insperatum/vhe.git

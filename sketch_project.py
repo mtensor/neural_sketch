@@ -5,113 +5,89 @@ from builtins import super
 import pickle
 import string
 import argparse
+import random
 
 import torch
 from torch import nn, optim
 
 from pinn import RobustFill
 import pregex as pre
-from vhe import VHE, DataLoader, Factors, Result
-
-from regex_prior import RegexPrior
+from vhe import VHE, DataLoader, Factors, Result, RegexPrior
+import random
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--train', type=str, choices=['qc','pc','px','vhe'])
+parser.add_argument('--pretrain', action='store_true')
+parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
 
 regex_prior = RegexPrior()
-k_shot = 4
+#k_shot = 4
+
+
+class Hole(pre.Pregex):
+    def __new__(cls): return super(Hole, cls).__new__(cls, None)
+    def __repr__(self): return "(HOLE)"
+    def flatten(self, char_map={}, escape_strings=False):
+        return [type(self)]
+
+
 regex_vocab = list(string.printable[:-4]) + \
-    [pre.OPEN, pre.CLOSE, pre.String, pre.Concat, pre.Alt, pre.KleeneStar, pre.Plus, pre.Maybe] + \
+    [pre.OPEN, pre.CLOSE, pre.String, pre.Concat, pre.Alt, pre.KleeneStar, pre.Plus, pre.Maybe, Hole] + \
     regex_prior.character_classes
 
 
-def lookup_str(string: str) -> ec.Program:
-    pass
 
-def pre_to_prog(regex: pre.pregex) -> ec.Program:
+def make_holey(r: pre.Pregex) -> (pre.Pregex, torch.Tensor):
+    """
+    makes a regex holey
+    """
+    scores = []
 
-    #also this context, environment, request stuff .... 
+    def make_holey_inner(r: pre.Pregex) -> pre.Pregex:
+        if random.random() < 0.2: 
+            scores.append(regex_prior.scoreregex(r))
+            return Hole()
+        else: 
+            return r.map(make_holey_inner)
 
-    if regex.type == 'Concat':
-        return Application(Primitive.GLOBALS['r_concat'], Application(pre_to_prog(regex.values[0]),pre_to_prog(regex.values[1]) ) )
-    elif regex.type == 'KleeneStar':
-        return Application(Primitive.GLOBALS['r_kleene'], pre_to_prog(regex.val))
-    elif regex.type == 'Alt':
-        return Application(Primitive.GLOBALS['r_alt'], Application(pre_to_prog(regex.values[0]), pre_to_prog(regex.values[1]) ) )
-    elif regex.type == 'Plus':
-        return Application(Primitive.GLOBALS['r_plus'], pre_to_prog(regex.val))
-    elif regex.type == 'Maybe':
-        return Application(Primtive.GLOBALS['r_maybe'], pre_to_prog(regex.val))
-    elif regex.type == 'String':
-        print("WARNING: doing stupidest possible thing for Strings")
-        return Application(Primitive.GLOBALS['r_concat'], Application( lookup_str(regex.arg[0]), pre_to_prog(pre.String(regex.arg[0:]) )))
-    elif regex.type == 'Hole':
-        raise unimplemented
-    elif regex.type == 'CharacterClass':
-        if regex.name ==  '.': return Primtive.GLOBALS['r_dot']
-        elif regex.name ==  '\\d': return Primtive.GLOBALS['r_d']
-        elif regex.name ==  '\\s': return Primtive.GLOBALS['r_s']
-        elif regex.name ==  '\\w': return Primtive.GLOBALS['r_w']
-        elif regex.name ==  '\\l': return Primtive.GLOBALS['r_l']
-        elif regex.name ==  '\\u': return Primtive.GLOBALS['r_u']
-        else: assert False
-    else: assert False
+    holey = make_holey_inner(r)
+    return holey, torch.Tensor([sum(scores)])
 
 
-
-
-def convert_ec_program_to_pregex(program: ec.program) -> pre.pregex:
-    #probably just a conversion:
-    return program.evaluate([]) #with catches, i think 
-
-
-def find_ll_reward_with_enumeration(sample, examples, time=10):
-
-
-#something like this: TODO:
-
-    maxll = float('-inf')
-
-    #make sample into a context maybe??
-    contex = something(sample) #TODO
-    environment = something_else #TODO
-    request = tpregex #I think, TODO
-
-    for prior, _, p in g.enumeration(Context.EMPTY, [], request,
-                                             maximumDepth=99,
-                                             upperBound=budget,
-                                             lowerBound=previousBudget): #TODO:fill it out 
- 
-        ll = likelihood(p,examples) #TODO probably just convert to a pregex and then sum the match
-
-        if ll > maxll:
-            maxll = ll
-
-        if timeout is not None and time() - starting > timeout:
-            break
-
-
-    return maxll
-
-
-
+# def test_function():
+#     x = regex_prior.sampleregex()
+#     print(x)
+#     y, score = make_holey(x)
+#     print(y)
+#     print(score)
+#     return x, y, score
 
 
 if __name__ == "__main__":
+
+    max_length = 30
+    batch_size = 200
+
     print("Loading model", flush=True)
-    try: model=torch.load("./sketch_model.p")
-    except FileNotFoundError: model = RobustFill(input_vocabularies=[string.printable[:-4]], target_vocabulary=regex_vocab)
+    try: 
+        model=torch.load("./sketch_model.p")
+        print('found saved model, loading')
+    except FileNotFoundError:
+        print("no saved model, creating new one")
+        model = RobustFill(input_vocabularies=[string.printable[:-4]], target_vocabulary=regex_vocab, max_length=max_length)
+
+    model.cuda()
+    print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
 
-    ######## Pretraining ########
-    batch_size = 500
-    max_length = 15
+    ######## Pretraining without holes ########
 
-    def getInstance():
+    def getInstance(k_shot=4):
         """
         Returns a single problem instance, as input/target strings
         """
+        #k_shot = 4 #random.choice(range(3,6)) #this means from 3 to 5 examples
+ 
         while True:
             r = regex_prior.sampleregex()
             c = r.flatten()
@@ -119,92 +95,143 @@ if __name__ == "__main__":
             Dc = [r.sample() for i in range(k_shot)]
             c_input = [c]
             if all(len(x)<max_length for x in Dc + [c, x]): break
-        return {'Dc':Dc, 'c':c, 'c_input':c_input, 'x':x}
+        return {'Dc':Dc, 'c':c, 'c_input':c_input, 'x':x, 'r':r}
 
     def getBatch():
         """
         Create a batch of problem instances, as tensors
         """
-        instances = [getInstance() for i in range(batch_size)]
+        k_shot = random.choice(range(3,6)) #this means from 3 to 5 examples
+
+        instances = [getInstance(k_shot=k_shot) for i in range(batch_size)]
         Dc = [inst['Dc'] for inst in instances]
         c = [inst['c'] for inst in instances]
         c_input = [inst['c_input'] for inst in instances]
         x = [inst['x'] for inst in instances]
-        return Dc, c, c_input, x
+        r = [inst['r'] for inst in instances]
+        return Dc, c, c_input, x, r 
 
-    if args.train:
+    if args.pretrain:
+
         print("pretraining", flush=True)
-        if not hasattr(model, 'iteration'):
-            model.iteration = 0
-            model.scores = []
-        for i in range(model.iteration, 20000):
-            Dc, c, c_input, x = getBatch()
+        if not hasattr(model, 'pretrain_iteration'):
+            model.pretrain_iteration = 0
+            model.pretrain_scores = []
+
+        if args.debug:
+            Dc, c, _, _, _ = getBatch()
+
+        for i in range(model.pretrain_iteration, 20000):
+            if not args.debug:
+                Dc, c, _, _, _ = getBatch()
+            #print("Dc:", Dc)
+            #print("c:", c)
             score = model.optimiser_step(Dc, c)
 
-            model.scores.append(score)
-            model.iteration += 1
-            if i%10==0: print(args.train, "iteration", i, "score:", score, flush=True)
-            if i%500==0: torch.save(f, './sketch_model.p')
-    ######## End Pretraining ########
+            model.pretrain_scores.append(score)
+            model.pretrain_iteration += 1
+            if i%10==0: print("pretrain iteration", i, "score:", score, flush=True)
+            if i%500==0: torch.save(model, './sketch_model.p')
+    ######## End Pretraining without holes ########
 
 
-####### Pretrain with holes ########
+    max_length = 30
+    batch_size = 100
+
+    ####### train with holes ########
+    print("training with holes")
+    model = model.with_target_vocabulary(regex_vocab)
+    model.cuda()
+
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    if not hasattr(model, 'iteration'):
+        model.iteration = 0
+        model.scores = []
+    for i in range(model.iteration, 10000):
+        optimizer.zero_grad()
+        Dc, c, _, _, r = getBatch()
+        full_program_score = model.score(Dc, c, autograd=False)
+
+        holey_r, holescore = zip(*[make_holey(reg) for reg in r])
+
+        holescore = torch.cat(holescore, 0).cuda()
+        sketch = [reg.flatten() for reg in holey_r]
+
+            #put holes into r
+            #calculate score of hole
+
+        #I think this is the right objective ... check https://arxiv.org/pdf/1506.05254.pdf
+        #print(holescore.size())
+        #print(full_program_score.size())
+        objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
+        #print(objective.size())
+        objective = objective.mean()
+        #print(objective)
+        (-objective).backward()
+        optimizer.step()
+        model.iteration += 1
+        model.scores.append(objective)
+        if i%10==0: 
+            print("iteration", i, "score:", objective.item(), flush=True)
+            inst = getInstance()
+
+            samples, scores = model.sampleAndScore([inst['Dc']], nRepeats=100)
+            index = scores.index(max(scores))
+            #print(samples[index])
+            try: sample = pre.create(list(samples[index]))
+            except: sample = samples[index]
+            sample = samples[index]
+            print("actual program:", pre.create(inst['c']))
+            print("generated examples:")
+            print(*inst['Dc'])
+            print("inferred:", sample)
+
+        if i%500==0 and not i==0: torch.save(model, './sketch_model_holes.p')
+
+    ####### End train with holes ########
 
 
 
-#Kevin's RL version
-
-#I think this is the right objective ... check https://arxiv.org/pdf/1506.05254.pdf
-objective = score(sketch)*(logp(hole) - score(full_program).data) 
-
-####### End pretrain with holes ########
+    ######testing######
 
 
+    # ###### full RL training with enumeration ########
+    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
+
+    # for batch in actual_data: #or synthetic data, whatever:
+    #     optimizer.zero_grad()
+    #     samples, scores = model.sampleAndScore(batch, autograd=True) #TODO: change so you can get grad through here, and so that scores are seperate???
+    #     objective = []
+    #     for sample, score, examples in zip(samples, scores, batch):
+    #         #DO RL
+    #         objective.append = -score*find_ll_reward_with_enumeration(sample, examples, time=10) #TODO, ideally should be per hole
 
 
-###### full training ########
-optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    #     objective = torch.sum(objective)
+    #     #DO RL 
+    #     #TODO???? oh god. Make reward in positive range??) 
+    #     #Q: is it even
 
-for batch in actual_data: #or synthetic data, whatever:
-    optimizer.zero_grad()
-    samples, scores = model.sampleAndScore(batch, autograd=True) #TODO: change so you can get grad through here, and so that scores are seperate???
-    objective = []
-    for sample, score, examples in zip(samples, scores, batch):
-        #DO RL
-        objective.append = -score*find_ll_reward_with_enumeration(sample, examples, time=10) #TODO, ideally should be per hole
+    #     objective.backward()
+    #     optimizer.step()
 
-
-    objective = torch.sum(objective)
-    #DO RL 
-    #TODO???? oh god. Make reward in positive range??) 
-    #Q: is it even
-
-    objective.backward()
-    optimizer.step()
-
-
-
-
-#from holes, enumerate:
-
-#option 1: use ec enumeration
-#option 2: use something else
-
-"""
-RL questions:
-- should I do param updates for each batch???
-- can we even get gradients through the whole sample? no, but not too hard I think
-- 
-"""
-
-#trees will be nice because you can enumerate within the tree by just sampling more --- then is it even worth it??
-
-
-###### End full training ########
+    #from holes, enumerate:
+    #option 1: use ec enumeration
+    #option 2: use something else
+    """
+    RL questions:
+    - should I do param updates for each batch???
+    - can we even get gradients through the whole sample? no, but not too hard I think
+    - 
+    """
+    #trees will be nice because you can enumerate within the tree by just sampling more --- then is it even worth it??
+    ###### End full training ########
 
 
 
-#informal testing:
+
+    #informal testing:
 
 
 
