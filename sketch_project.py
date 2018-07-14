@@ -173,7 +173,7 @@ if __name__ == "__main__":
             #print(holescore.size())
             #print(full_program_score.size()
 
-            objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)/torch.exp(full_program_score)
+            objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #print(objective.size())
