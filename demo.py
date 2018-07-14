@@ -5,7 +5,7 @@ from sketch_project import *
 
 print("loading model")
 #model=torch.load("./sketch_model.p")
-model=torch.load("./sketch_model_pretrain_holes.p")
+model=torch.load("./sketch_model_holes.p")
 
 
 for i in range(999):

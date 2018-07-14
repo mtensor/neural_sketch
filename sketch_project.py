@@ -132,6 +132,9 @@ if __name__ == "__main__":
             model.pretrain_scores.append(score)
             model.pretrain_iteration += 1
             if i%10==0: print("pretrain iteration", i, "score:", score, flush=True)
+
+            #to prevent overwriting model:
+            assert False
             if i%500==0: torch.save(model, './sketch_model.p')
     ######## End Pretraining without holes ########
 
@@ -199,7 +202,7 @@ if __name__ == "__main__":
             print("inferred:", sample)
 
         if i%500==0: # and not i==0: 
-            torch.save(model, './sketch_model_holes_test.p')
+            torch.save(model, './sketch_model_holes.p')
 
     ####### End train with holes ########
 
