@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
         if not args.pretrain_holes:
             holescore = torch.cat(holescore, 0).cuda()
-            #full_program_score = model.score(Dc, c, autograd=False)
+            full_program_score = model.score(Dc, c, autograd=False)
             #put holes into r
             #calculate score of hole
 
@@ -174,7 +174,7 @@ if __name__ == "__main__":
             #print(full_program_score.size()
 
             #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
-            objective = model.score(Dc, sketch, autograd=True)*holescore #- full_program_score)
+            objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #print(objective.size())
             objective = objective.mean()
