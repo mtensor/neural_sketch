@@ -17,6 +17,7 @@ import random
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--pretrain', action='store_true')
+parser.add_argument('--pretrain_holes', action='store_true')
 parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
 
@@ -37,14 +38,14 @@ regex_vocab = list(string.printable[:-4]) + \
 
 
 
-def make_holey(r: pre.Pregex) -> (pre.Pregex, torch.Tensor):
+def make_holey(r: pre.Pregex, p=0.2) -> (pre.Pregex, torch.Tensor):
     """
     makes a regex holey
     """
     scores = []
 
     def make_holey_inner(r: pre.Pregex) -> pre.Pregex:
-        if random.random() < 0.2: 
+        if random.random() < p: 
             scores.append(regex_prior.scoreregex(r))
             return Hole()
         else: 
@@ -143,39 +144,49 @@ if __name__ == "__main__":
     model = model.with_target_vocabulary(regex_vocab)
     model.cuda()
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    if not args.pretrain_holes:
+        optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     if not hasattr(model, 'iteration'):
         model.iteration = 0
-        model.scores = []
+        model.hole_scores = []
     for i in range(model.iteration, 10000):
-        optimizer.zero_grad()
+
+        if not args.pretrain_holes:
+            optimizer.zero_grad()
         Dc, c, _, _, r = getBatch()
-        full_program_score = model.score(Dc, c, autograd=False)
 
         holey_r, holescore = zip(*[make_holey(reg) for reg in r])
-
-        holescore = torch.cat(holescore, 0).cuda()
         sketch = [reg.flatten() for reg in holey_r]
 
+        if not args.pretrain_holes:
+            holescore = torch.cat(holescore, 0).cuda()
+            #full_program_score = model.score(Dc, c, autograd=False)
             #put holes into r
             #calculate score of hole
 
-        #I think this is the right objective ... check https://arxiv.org/pdf/1506.05254.pdf
-        #print(holescore.size())
-        #print(full_program_score.size())
-        objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
-        #print(objective.size())
-        objective = objective.mean()
-        #print(objective)
-        (-objective).backward()
-        optimizer.step()
-        model.iteration += 1
-        model.scores.append(objective)
-        if i%10==0: 
-            print("iteration", i, "score:", objective.item(), flush=True)
-            inst = getInstance()
+            #I think this is the right objective ... check https://arxiv.org/pdf/1506.05254.pdf - actually don't, not relevant
 
+            #print(holescore.size())
+            #print(full_program_score.size()
+
+            objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
+            #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
+            #print(objective.size())
+            objective = objective.mean()
+            #print(objective)
+            (-objective).backward()
+            optimizer.step()
+
+        else: #if args.pretrain_holes:
+            objective = model.optimiser_step(Dc, sketch)
+
+        model.iteration += 1
+        model.hole_scores.append(objective)
+        if i%10==0: 
+            print("iteration", i, "score:", objective, flush=True)
+        if i%100==0:
+            inst = getInstance()
             samples, scores = model.sampleAndScore([inst['Dc']], nRepeats=100)
             index = scores.index(max(scores))
             #print(samples[index])
@@ -187,7 +198,8 @@ if __name__ == "__main__":
             print(*inst['Dc'])
             print("inferred:", sample)
 
-        if i%500==0 and not i==0: torch.save(model, './sketch_model_holes.p')
+        if i%500==0: # and not i==0: 
+            torch.save(model, './sketch_model_holes_test.p')
 
     ####### End train with holes ########
 
