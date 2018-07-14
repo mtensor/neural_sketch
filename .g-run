@@ -1,0 +1,3 @@
+#!/bin/bash
+ln -s ../../envs
+ln -s ../../sketch_model_pretrained.p
