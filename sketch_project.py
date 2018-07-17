@@ -196,7 +196,7 @@ if __name__ == "__main__":
             #print(full_program_score)
             #print(torch.exp(-full_program_score))
             #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
-            #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
+            objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
             #objective = model.score(Dc, sketch, autograd=True)*holescore
 
             """log E_{S~Q) P(y|S)
@@ -212,7 +212,7 @@ if __name__ == "__main__":
             #control 2:
             #objective = model.score(Dc, sketch, autograd=True)
 
-            objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
+            #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #print(objective.size())
             objective = objective.mean()
             #print(objective)
