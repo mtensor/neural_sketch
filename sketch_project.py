@@ -70,7 +70,6 @@ def sketch_logprior(preg: pre.Pregex, p=0.2) -> torch.Tensor:
 
 
 if __name__ == "__main__":
-    assert False
     parser = argparse.ArgumentParser()
     parser.add_argument('--pretrain', action='store_true')
     parser.add_argument('--pretrain_holes', action='store_true')
