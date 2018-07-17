@@ -175,9 +175,9 @@ if __name__ == "__main__":
 
         if not args.pretrain_holes:
             holescore = torch.cat(holescore, 0).cuda()
-            full_program_score = model.score(Dc, c, autograd=False)
+            #full_program_score = model.score(Dc, c, autograd=False)
 
-            #sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0).cuda()
+            sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0).cuda()
 
             #put holes into r
             #calculate score of hole
