@@ -169,6 +169,7 @@ if __name__ == "__main__":
 
     if not hasattr(model, 'iteration'):
         model.iteration = 0
+    if not hasattr(model, 'iteration'):
         model.hole_scores = []
     for i in range(model.iteration, 10000):
 
