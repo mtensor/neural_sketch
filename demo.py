@@ -15,6 +15,7 @@ from sketch_project import Hole
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--pretrained', action='store_true')
+parser.add_argument('--pretrain_holes', action='store_true')
 args = parser.parse_args()
 
 
@@ -23,6 +24,9 @@ print("loading model")
 if args.pretrained:
 	print("loading pretrained_model")
 	model=torch.load("./sketch_model.p")
+elif args.pretrain_holes:
+	print("loading pretrain_holes")
+	model=torch.load("./sketch_model_pretrain_holes.p")
 else:
 	print("loading model with holes")
 	model=torch.load("./sketch_model_holes.p")

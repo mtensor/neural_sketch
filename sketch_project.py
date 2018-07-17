@@ -14,7 +14,7 @@ from pinn import RobustFill
 import pregex as pre
 from vhe import VHE, DataLoader, Factors, Result, RegexPrior
 import random
-
+import math
 
 
 regex_prior = RegexPrior()
@@ -26,6 +26,12 @@ class Hole(pre.Pregex):
     def __repr__(self): return "(HOLE)"
     def flatten(self, char_map={}, escape_strings=False):
         return [type(self)]
+    def walk(self, depth=0):
+        """
+        walks through the nodes
+        """
+        yield self, depth
+
 
 
 regex_vocab = list(string.printable[:-4]) + \
@@ -37,29 +43,34 @@ def make_holey(r: pre.Pregex, p=0.2) -> (pre.Pregex, torch.Tensor):
     """
     makes a regex holey
     """
-    scores = []
-
+    scores = 0
     def make_holey_inner(r: pre.Pregex) -> pre.Pregex:
         if random.random() < p: 
-            scores.append(regex_prior.scoreregex(r))
+            nonlocal scores
+            scores += regex_prior.scoreregex(r)
             return Hole()
         else: 
             return r.map(make_holey_inner)
 
     holey = make_holey_inner(r)
-    return holey, torch.Tensor([sum(scores)])
+    return holey, torch.Tensor([scores])
+
+def sketch_logprior(preg: pre.Pregex, p=0.2) -> torch.Tensor:
+    logprior=0
+    for r, d in preg.walk():
+        if type(r) is pre.String or type(r) is pre.CharacterClass or type(r) is Hole: #TODO, is a leaf
+            if type(r) is Hole: #TODO
+                logprior += math.log(p) + d*math.log(1-p)
+            else:
+                logprior += (d+1)*math.log(1-p)
+
+    return torch.tensor([logprior])
 
 
-# def test_function():
-#     x = regex_prior.sampleregex()
-#     print(x)
-#     y, score = make_holey(x)
-#     print(y)
-#     print(score)
-#     return x, y, score
 
 
 if __name__ == "__main__":
+    assert False
     parser = argparse.ArgumentParser()
     parser.add_argument('--pretrain', action='store_true')
     parser.add_argument('--pretrain_holes', action='store_true')
@@ -165,6 +176,9 @@ if __name__ == "__main__":
         if not args.pretrain_holes:
             holescore = torch.cat(holescore, 0).cuda()
             #full_program_score = model.score(Dc, c, autograd=False)
+
+            sketch_prior = torch.cat((sketch_logprior(sk) for sk in sketch), 0)
+
             #put holes into r
             #calculate score of hole
 
@@ -177,12 +191,17 @@ if __name__ == "__main__":
             #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
             #objective = model.score(Dc, sketch, autograd=True)*holescore
 
+            """log E_{S~Q) P(y|S)
+>= E_{S~Q) log P(y|S)
+= E{S~R} Q(S)/R(S) log P(y|S)"""
+
+            objective = (math.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore
             #control:
             #objective = model.score(Dc, c, autograd=True)
             #control 2:
-            objective = model.score(Dc, sketch, autograd=True)
+            #objective = model.score(Dc, sketch, autograd=True)
 
-            #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
+            objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #print(objective.size())
             objective = objective.mean()
             #print(objective)
