@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
         if not args.pretrain_holes:
             holescore = torch.cat(holescore, 0).cuda()
-            full_program_score = model.score(Dc, c, autograd=False)
+            #full_program_score = model.score(Dc, c, autograd=False)
             #put holes into r
             #calculate score of hole
 
@@ -172,9 +172,10 @@ if __name__ == "__main__":
 
             #print(holescore.size())
             #print(full_program_score.size()
-
-            objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
-            #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
+            #print(full_program_score)
+            #print(torch.exp(-full_program_score))
+            #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
+            objective = model.score(Dc, sketch, autograd=True)*holescore
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #print(objective.size())
             objective = objective.mean()
@@ -203,7 +204,8 @@ if __name__ == "__main__":
             print("inferred:", sample)
 
         if i%500==0: # and not i==0: 
-            torch.save(model, './sketch_model_holes.p')
+            pass
+            #torch.save(model, './sketch_model_holes.p')
 
     ####### End train with holes ########
 
