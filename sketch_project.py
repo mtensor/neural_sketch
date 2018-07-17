@@ -75,15 +75,21 @@ if __name__ == "__main__":
     parser.add_argument('--pretrain_holes', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--nosave', action='store_true')
+    parser.add_argument('--start_with_holes', action='store_true')
     args = parser.parse_args()
 
     max_length = 30
     batch_size = 200
 
     print("Loading model", flush=True)
-    try: 
-        model=torch.load("./sketch_model_pretrained.p")
-        print('found saved model, loading')
+    try:
+        if args.start_with_holes:
+            model=torch.load("./sketch_model_pretrain_holes.p")
+            print('found saved model, loading pretrained model with holes')
+        else:
+            model=torch.load("./sketch_model_pretrained.p")
+            print('found saved model, loading pretrained model')
+
     except FileNotFoundError:
         print("no saved model, creating new one")
         model = RobustFill(input_vocabularies=[string.printable[:-4]], target_vocabulary=regex_vocab, max_length=max_length)
@@ -196,8 +202,8 @@ if __name__ == "__main__":
 >= E_{S~Q) log P(y|S)
 = E{S~R} Q(S)/R(S) log P(y|S)"""
 
-            #objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
-            objective = model.score(Dc, sketch, autograd=True) / torch.exp(sketch_prior) * holescore
+            objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
+            #objective = model.score(Dc, sketch, autograd=True) / torch.exp(sketch_prior) * holescore
 
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - sketch_prior)
             #control:

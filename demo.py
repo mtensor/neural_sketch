@@ -51,8 +51,10 @@ for i in range(999):
 				examples.append(s)
 
 	print("calculating... ")
-	samples, scores = model.sampleAndScore([examples], nRepeats=100)
+	samples, scores = model.sampleAndScore([examples], nRepeats=2)
 	print(samples)
+	print(scores)
+	print(len(scores), len(samples))
 	index = scores.index(max(scores))
 	#print(samples[index])
 	try: sample = pre.create(list(samples[index]))

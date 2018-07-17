@@ -1,3 +1,4 @@
 #!/bin/bash
 ln -s ../../envs
 ln -s ../../sketch_model_pretrained.p
+ln -s ../../sketch_model_pretrain_holes.p
