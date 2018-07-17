@@ -175,7 +175,7 @@ if __name__ == "__main__":
 
         if not args.pretrain_holes:
             holescore = torch.cat(holescore, 0).cuda()
-            #full_program_score = model.score(Dc, c, autograd=False)
+            full_program_score = model.score(Dc, c, autograd=False)
 
             #sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0).cuda()
 
@@ -189,7 +189,8 @@ if __name__ == "__main__":
             #print(full_program_score)
             #print(torch.exp(-full_program_score))
             #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
-            objective = model.score(Dc, sketch, autograd=True)*holescore
+            objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
+            #objective = model.score(Dc, sketch, autograd=True)*holescore
 
             """log E_{S~Q) P(y|S)
 >= E_{S~Q) log P(y|S)
