@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
     print("Loading model", flush=True)
     try: 
-        model=torch.load("./sketch_model.p")
+        model=torch.load("./sketch_model_pretrained.p")
         print('found saved model, loading')
     except FileNotFoundError:
         print("no saved model, creating new one")
