@@ -15,11 +15,7 @@ import pregex as pre
 from vhe import VHE, DataLoader, Factors, Result, RegexPrior
 import random
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--pretrain', action='store_true')
-parser.add_argument('--pretrain_holes', action='store_true')
-parser.add_argument('--debug', action='store_true')
-args = parser.parse_args()
+
 
 regex_prior = RegexPrior()
 #k_shot = 4
@@ -35,7 +31,6 @@ class Hole(pre.Pregex):
 regex_vocab = list(string.printable[:-4]) + \
     [pre.OPEN, pre.CLOSE, pre.String, pre.Concat, pre.Alt, pre.KleeneStar, pre.Plus, pre.Maybe, Hole] + \
     regex_prior.character_classes
-
 
 
 def make_holey(r: pre.Pregex, p=0.2) -> (pre.Pregex, torch.Tensor):
@@ -65,6 +60,11 @@ def make_holey(r: pre.Pregex, p=0.2) -> (pre.Pregex, torch.Tensor):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--pretrain', action='store_true')
+    parser.add_argument('--pretrain_holes', action='store_true')
+    parser.add_argument('--debug', action='store_true')
+    args = parser.parse_args()
 
     max_length = 30
     batch_size = 200
@@ -175,7 +175,10 @@ if __name__ == "__main__":
             #print(full_program_score)
             #print(torch.exp(-full_program_score))
             #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
-            objective = model.score(Dc, sketch, autograd=True)*holescore
+            #objective = model.score(Dc, sketch, autograd=True)*holescore
+            
+            #control:
+            objective = model.score(Dc, c, autograd=True)
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #print(objective.size())
             objective = objective.mean()

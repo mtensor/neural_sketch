@@ -1,11 +1,31 @@
 #demo.py
 
-from sketch_project import *
+
+import argparse
+import torch
+from torch import nn, optim
+
+from pinn import RobustFill
+import pregex as pre
+#from vhe import VHE, DataLoader, Factors, Result, RegexPrior
+import random
+
+from sketch_project import Hole
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--pretrained', action='store_true')
+args = parser.parse_args()
 
 
 print("loading model")
-#model=torch.load("./sketch_model.p")
-model=torch.load("./sketch_model_holes.p")
+
+if args.pretrained:
+	print("loading pretrained_model")
+	model=torch.load("./sketch_model.p")
+else:
+	print("loading model with holes")
+	model=torch.load("./sketch_model_holes.p")
 
 
 for i in range(999):
