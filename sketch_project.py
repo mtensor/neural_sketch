@@ -74,6 +74,7 @@ if __name__ == "__main__":
     parser.add_argument('--pretrain', action='store_true')
     parser.add_argument('--pretrain_holes', action='store_true')
     parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--nosave', action='store_true')
     args = parser.parse_args()
 
     max_length = 30
@@ -144,8 +145,8 @@ if __name__ == "__main__":
             if i%10==0: print("pretrain iteration", i, "score:", score, flush=True)
 
             #to prevent overwriting model:
-            assert False
-            if i%500==0: torch.save(model, './sketch_model.p')
+            if not args.nosave:
+                if i%500==0: torch.save(model, './sketch_model.p')
     ######## End Pretraining without holes ########
 
 
@@ -176,7 +177,7 @@ if __name__ == "__main__":
             holescore = torch.cat(holescore, 0).cuda()
             #full_program_score = model.score(Dc, c, autograd=False)
 
-            sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0)
+            sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0).cuda()
 
             #put holes into r
             #calculate score of hole
@@ -194,7 +195,7 @@ if __name__ == "__main__":
 >= E_{S~Q) log P(y|S)
 = E{S~R} Q(S)/R(S) log P(y|S)"""
 
-            objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior)) * holescore
+            objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
             #control:
             #objective = model.score(Dc, c, autograd=True)
             #control 2:
@@ -228,8 +229,8 @@ if __name__ == "__main__":
             print("inferred:", sample)
 
         if i%500==0: # and not i==0: 
-            pass
-            #torch.save(model, './sketch_model_holes.p')
+            if not args.nosave:
+                torch.save(model, './sketch_model_holes.p')
 
     ####### End train with holes ########
 
