@@ -195,7 +195,9 @@ if __name__ == "__main__":
 >= E_{S~Q) log P(y|S)
 = E{S~R} Q(S)/R(S) log P(y|S)"""
 
-            objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
+            #objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
+
+            objective = model.score(Dc, sketch, autograd=True)*(holescore - sketch_prior)
             #control:
             #objective = model.score(Dc, c, autograd=True)
             #control 2:
