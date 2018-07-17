@@ -176,7 +176,7 @@ if __name__ == "__main__":
             holescore = torch.cat(holescore, 0).cuda()
             #full_program_score = model.score(Dc, c, autograd=False)
 
-            sketch_prior = torch.cat((sketch_logprior(sk) for sk in sketch), 0)
+            sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in sketch), 0)
 
             #put holes into r
             #calculate score of hole
