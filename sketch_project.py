@@ -76,6 +76,7 @@ if __name__ == "__main__":
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--nosave', action='store_true')
     parser.add_argument('--start_with_holes', action='store_true')
+    parser.add_argument('--variance_reduction', action='store_true')
     args = parser.parse_args()
 
     max_length = 30
@@ -164,6 +165,10 @@ if __name__ == "__main__":
     model = model.with_target_vocabulary(regex_vocab)
     model.cuda()
 
+    if args.variance_reduction:
+        if not hasattr(model, 'variance_red'):
+            model.variance_red = nn.Parameter(torch.Tensor([0])).cuda()
+
     if not args.pretrain_holes:
         optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
@@ -202,8 +207,14 @@ if __name__ == "__main__":
             """log E_{S~Q) P(y|S)
 >= E_{S~Q) log P(y|S)
 = E{S~R} Q(S)/R(S) log P(y|S)"""
+    
+            #variance reduction term to help with learning
+                 #Dc is a list of lists of strings (which are iterables)
+
+            #can do something silly like average embedding
+
             
-            objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
+            objective = torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * (holescore - model.variance_red.data) - torch.pow((holescore - model.variance_red),2)
             #objective = model.score(Dc, sketch, autograd=True) / torch.exp(sketch_prior) * holescore
 
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - sketch_prior)
@@ -224,7 +235,7 @@ if __name__ == "__main__":
 
         model.iteration += 1
         model.hole_scores.append(objective)
-        if i%10==0: 
+        if i%1==0: 
             print("iteration", i, "score:", objective, flush=True)
         if i%100==0:
             inst = getInstance()

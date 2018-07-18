@@ -71,7 +71,7 @@ for i in range(999):
 			pregexes.append(reg)
 			pscores.append(sum(reg.match(ex) for ex in examples )) 
 		except:
-			continue 
+			pscores.append(float('-inf'))
 
 	index = pscores.index(max(pscores))
 	preg = pregexes[index] 
