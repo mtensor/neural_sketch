@@ -167,7 +167,7 @@ if __name__ == "__main__":
     if not args.pretrain_holes:
         optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
-    if not hasattr(model, 'iteration'):
+    if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
     if not hasattr(model, 'hole_scores'):
         model.hole_scores = []
