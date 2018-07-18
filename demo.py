@@ -23,7 +23,7 @@ print("loading model")
 
 if args.pretrained:
 	print("loading pretrained_model")
-	model=torch.load("./sketch_model.p")
+	model=torch.load("./sketch_model_pretrained.p")
 elif args.pretrain_holes:
 	print("loading pretrain_holes")
 	model=torch.load("./sketch_model_pretrain_holes.p")

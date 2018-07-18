@@ -165,7 +165,7 @@ if __name__ == "__main__":
     model.cuda()
 
     if not args.pretrain_holes:
-        optimizer = optim.Adam(model.parameters(), lr=1e-3)
+        optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
@@ -184,7 +184,7 @@ if __name__ == "__main__":
             holescore = torch.cat(holescore, 0).cuda()
             #full_program_score = model.score(Dc, c, autograd=False)
 
-            sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0).cuda()
+            #sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0).cuda()
 
             #put holes into r
             #calculate score of hole
@@ -196,14 +196,14 @@ if __name__ == "__main__":
             #print(full_program_score)
             #print(torch.exp(-full_program_score))
             #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
-            #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
+            objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
             #objective = model.score(Dc, sketch, autograd=True)*holescore
 
             """log E_{S~Q) P(y|S)
 >= E_{S~Q) log P(y|S)
 = E{S~R} Q(S)/R(S) log P(y|S)"""
-
-            objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
+            
+            #objective = (torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * holescore)
             #objective = model.score(Dc, sketch, autograd=True) / torch.exp(sketch_prior) * holescore
 
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - sketch_prior)
@@ -239,9 +239,9 @@ if __name__ == "__main__":
             print(*inst['Dc'])
             print("inferred:", sample)
 
-        if i%500==0: # and not i==0: 
+        if i%20==0: # and not i==0: 
             if not args.nosave:
-                torch.save(model, './sketch_model_holes.p')
+                torch.save(model, './sketch_model_holes_ep_{}.p'.format(str(i)))
 
     ####### End train with holes ########
 
