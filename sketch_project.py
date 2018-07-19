@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
 
     max_length = 30
-    batch_size = 100
+    batch_size = 200
 
     ####### train with holes ########
     print("training with holes")
@@ -170,7 +170,7 @@ if __name__ == "__main__":
             model.variance_red = nn.Parameter(torch.Tensor([0])).cuda()
 
     if not args.pretrain_holes:
-        optimizer = optim.Adam(model.parameters(), lr=1e-4)
+        optimizer = optim.Adam(model.parameters(), lr=1e-6)
 
     if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
@@ -253,6 +253,7 @@ if __name__ == "__main__":
         if i%100==0: # and not i==0: 
             if not args.nosave:
                 torch.save(model, './sketch_model_holes_ep_{}.p'.format(str(i)))
+                torch.save(model, './sketch_model_holes.p')
 
     ####### End train with holes ########
 
