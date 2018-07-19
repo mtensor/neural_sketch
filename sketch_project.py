@@ -170,7 +170,7 @@ if __name__ == "__main__":
             model.variance_red = nn.Parameter(torch.Tensor([0])).cuda()
 
     if not args.pretrain_holes:
-        optimizer = optim.Adam(model.parameters(), lr=1e-6)
+        optimizer = optim.Adam(model.parameters(), lr=1e-7)
 
     if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
