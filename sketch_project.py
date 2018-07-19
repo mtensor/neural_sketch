@@ -39,7 +39,7 @@ regex_vocab = list(string.printable[:-4]) + \
     regex_prior.character_classes
 
 
-def make_holey(r: pre.Pregex, p=0.2) -> (pre.Pregex, torch.Tensor):
+def make_holey(r: pre.Pregex, p=0.05) -> (pre.Pregex, torch.Tensor):
     """
     makes a regex holey
     """
@@ -55,7 +55,7 @@ def make_holey(r: pre.Pregex, p=0.2) -> (pre.Pregex, torch.Tensor):
     holey = make_holey_inner(r)
     return holey, torch.Tensor([scores])
 
-def sketch_logprior(preg: pre.Pregex, p=0.2) -> torch.Tensor:
+def sketch_logprior(preg: pre.Pregex, p=0.05) -> torch.Tensor:
     logprior=0
     for r, d in preg.walk():
         if type(r) is pre.String or type(r) is pre.CharacterClass or type(r) is Hole: #TODO, is a leaf
@@ -170,7 +170,7 @@ if __name__ == "__main__":
             model.variance_red = nn.Parameter(torch.Tensor([0])).cuda()
 
     if not args.pretrain_holes:
-        optimizer = optim.Adam(model.parameters(), lr=1e-7)
+        optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
