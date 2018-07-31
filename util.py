@@ -3,8 +3,33 @@
 utils for neural_sketch, mostly conversions between pregex and EC. unused for now, may be important later 
 
 """
+import sys
+sys.path.append("../ec")
+
+from grammar import Grammar
+from regexPrimitives import basePrimitives
+import math
+from type import tpregex, Context
 
 
+prim_list = basePrimitives()
+specials = ["r_kleene", "r_plus", "r_maybe", "r_alt", "r_concat"]
+n_base_prim = len(prim_list) - len(specials)
+
+productions = [
+    (math.log(0.5 / float(n_base_prim)),
+     prim) if prim.name not in specials else (
+        math.log(0.10),
+        prim) for prim in prim_list]
+
+
+baseGrammar = Grammar.fromProductions(productions)
+
+def enumerate_reg(number):
+    depth = number
+    yield from ((prog.evaluate([]), l) for l, _, prog in baseGrammar.enumeration(Context.EMPTY, [], tpregex, depth))
+
+"""
 def lookup_str(string: str) -> ec.Program:
     pass
 
@@ -60,3 +85,17 @@ def find_ll_reward_with_enumeration(sample, examples, time=10):
         if timeout is not None and time() - starting > timeout:
             break
     return maxll
+
+"""
+
+if __name__ == '__main__':
+    print("testing enumeration")
+    print("creating the enum_dict")
+    from collections import OrderedDict
+    d = {r: s for r, s in enumerate_reg(13)} #TODO #13 gives 24888
+
+    #sort dict
+    enum_dict = OrderedDict(sorted(d.items(), key=lambda s: -s[1]))
+
+    print(enum_dict)
+
