@@ -213,7 +213,7 @@ if __name__ == "__main__":
 
 
     max_length = 30
-    batch_size = 200
+    batch_size = 100
 
     ####### train with holes ########
     print("training with holes")
