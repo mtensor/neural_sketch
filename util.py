@@ -4,7 +4,7 @@ utils for neural_sketch, mostly conversions between pregex and EC. unused for no
 
 """
 import sys
-sys.path.append("../ec")
+sys.path.append("/om/user/mnye/ec")
 
 from grammar import Grammar
 from regexPrimitives import basePrimitives
