@@ -3,8 +3,86 @@
 utils for neural_sketch, mostly conversions between pregex and EC. unused for now, may be important later 
 
 """
+import sys
+sys.path.append("/om/user/mnye/ec")
+
+from grammar import Grammar
+from regexPrimitives import sketchPrimitives
+import math
+from type import tpregex, Context
+
+import pregex as pre
+from sketch_project import Hole
+import dill
+import random
 
 
+prim_list = sketchPrimitives()
+specials = ["r_kleene", "r_plus", "r_maybe", "r_alt", "r_concat"]
+n_base_prim = len(prim_list) - len(specials)
+
+productions = [
+    (math.log(0.5 / float(n_base_prim)),
+     prim) if prim.name not in specials else (
+        math.log(0.10),
+        prim) for prim in prim_list]
+
+
+baseGrammar = Grammar.fromProductions(productions)
+
+def enumerate_reg(number):
+    depth = number
+    yield from ((prog.evaluate([]), l) for l, _, prog in baseGrammar.enumeration(Context.EMPTY, [], tpregex, depth))
+
+
+def fill_hole(sketch:pre.pregex, subtree:pre.pregex) -> pre.pregex:
+    """
+    a function which fills one hole WITH THE SAME SUBTREE. requires only one hole in the whole thing
+    """
+
+    def fill_hole_inner(sketch:pre.pregex) -> pre.pregex:
+        if type(sketch) is Hole:
+            return subtree
+        else:
+            return sketch.map(fill_hole_inner)
+
+    return fill_hole_inner(sketch)
+
+
+####data loading#####
+def date_data(maxTasks=None, nExamples=5):
+    taskfile = "./dates.p"
+
+    with open(taskfile, 'rb') as handle:
+        data = dill.load(handle)
+
+    tasklist =  [column['data'][:nExamples] for column in data if len(column['data']) >= nExamples]
+
+    if maxTasks is not None:
+        random.seed(42) #42 #80
+        random.shuffle(tasklist)
+        del tasklist[maxTasks:]
+
+    return tasklist
+
+def all_data(maxTasks=None, nExamples=5):
+    taskfile = "./regex_data_csv_900.p"
+
+    with open(taskfile, 'rb') as handle:
+        data = dill.load(handle)
+
+    tasklist = [column[:nExamples] for column in data[0] if len(column) >=nExamples] #a list of indices
+
+    if maxTasks is not None:
+        random.seed(42) #42 #80
+        random.shuffle(tasklist)
+        del tasklist[maxTasks:]
+
+    return tasklist
+
+
+
+"""
 def lookup_str(string: str) -> ec.Program:
     pass
 
@@ -60,3 +138,17 @@ def find_ll_reward_with_enumeration(sample, examples, time=10):
         if timeout is not None and time() - starting > timeout:
             break
     return maxll
+
+"""
+
+if __name__ == '__main__':
+    print("testing enumeration")
+    print("creating the enum_dict")
+    from collections import OrderedDict
+    d = {r: s for r, s in enumerate_reg(13)} #TODO #13 gives 24888
+
+    #sort dict
+    enum_dict = OrderedDict(sorted(d.items(), key=lambda s: -s[1]))
+
+    print(enum_dict)
+

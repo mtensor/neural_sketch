@@ -1,11 +1,35 @@
 #demo.py
 
-from sketch_project import *
+
+import argparse
+import torch
+from torch import nn, optim
+
+from pinn import RobustFill
+import pregex as pre
+#from vhe import VHE, DataLoader, Factors, Result, RegexPrior
+import random
+
+from sketch_project import Hole
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--pretrained', action='store_true')
+parser.add_argument('--pretrain_holes', action='store_true')
+args = parser.parse_args()
 
 
 print("loading model")
-#model=torch.load("./sketch_model.p")
-model=torch.load("./sketch_model_pretrain_holes.p")
+
+if args.pretrained:
+	print("loading pretrained_model")
+	model=torch.load("./sketch_model_pretrained.p")
+elif args.pretrain_holes:
+	print("loading pretrain_holes")
+	model=torch.load("./sketch_model_pretrain_holes.p")
+else:
+	print("loading model with holes")
+	model=torch.load("./sketch_model_holes.p")
 
 
 for i in range(999):
@@ -27,8 +51,10 @@ for i in range(999):
 				examples.append(s)
 
 	print("calculating... ")
-	samples, scores = model.sampleAndScore([examples], nRepeats=100)
+	samples, scores = model.sampleAndScore([examples], nRepeats=2)
 	print(samples)
+	print(scores)
+	print(len(scores), len(samples))
 	index = scores.index(max(scores))
 	#print(samples[index])
 	try: sample = pre.create(list(samples[index]))
@@ -45,7 +71,8 @@ for i in range(999):
 			pregexes.append(reg)
 			pscores.append(sum(reg.match(ex) for ex in examples )) 
 		except:
-			continue 
+			pregexes.append(samp)
+			pscores.append(float('-inf'))
 
 	index = pscores.index(max(pscores))
 	preg = pregexes[index] 
