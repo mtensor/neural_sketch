@@ -67,7 +67,7 @@ def sketch_logprior(preg: pre.Pregex, p=0.05) -> torch.Tensor:
 
     return torch.tensor([logprior])
 
-def make_holey_supervised(reg: pre.Pregex, enum_dict: dict, k=1) -> (pre.Pregex, torch.Tensor):
+def make_holey_supervised(reg: pre.Pregex, enum_dict: dict, k=1) -> (pre.Pregex, float): #second return val should be torch.Tensor
     """
     makes a regex holey in a supervised way 
     right now, grabs the regex with the best score

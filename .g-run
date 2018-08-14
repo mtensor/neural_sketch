@@ -1,4 +1,10 @@
 #!/bin/bash
 ln -s ../../envs
+
+#models:
 ln -s ../../sketch_model_pretrained.p
 ln -s ../../sketch_model_pretrain_holes.p
+
+#data:
+ln -s ../../dates.p
+ln -s ../../regex_data_csv_900.p
