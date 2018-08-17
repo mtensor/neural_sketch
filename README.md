@@ -46,6 +46,24 @@
 
 #TODO for ICLR submission
 - [ ] refactor/generalize evaluation
+- [ ] beam search/Best first search
+- [ ] multiple holes (using EC langauge)
+- [X] build up Syntax-checker LSTM
+
+
+#TODO for DEEPCODER for ICLR:
+- [ ] dataset/how to train
+- [ ] primitive set for deepcoder
+- [ ] implement the program.flatten() method for nns (super easy)
+- [ ] implement parsing from string (not bad either, use stack machine )
+- [ ] implement training (pretrain and makeholey)
+- [ ] implement evaluation
+- [ ] test out reversing nn implementation
+
+
+#TODO for refactoring: 
+- [ ] make one main (domain agnostic) training script/file
+- [ ] make one main (domain agnostic) evaluation script/file
 
 
 #TODO for TPUs:

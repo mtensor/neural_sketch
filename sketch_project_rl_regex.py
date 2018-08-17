@@ -15,23 +15,10 @@ import pregex as pre
 from vhe import VHE, DataLoader, Factors, Result, RegexPrior
 import random
 import math
+from util import Hole
 
-from collections import OrderedDict
-from util import enumerate_reg
 regex_prior = RegexPrior()
 #k_shot = 4
-
-
-class Hole(pre.Pregex):
-    def __new__(cls): return super(Hole, cls).__new__(cls, None)
-    def __repr__(self): return "(HOLE)"
-    def flatten(self, char_map={}, escape_strings=False):
-        return [type(self)]
-    def walk(self, depth=0):
-        """
-        walks through the nodes
-        """
-        yield self, depth
 
 
 
@@ -67,50 +54,8 @@ def sketch_logprior(preg: pre.Pregex, p=0.05) -> torch.Tensor:
 
     return torch.tensor([logprior])
 
-def make_holey_supervised(reg: pre.Pregex, enum_dict: dict, k=1) -> (pre.Pregex, float): #second return val should be torch.Tensor
-    """
-    makes a regex holey in a supervised way 
-    right now, grabs the regex with the best score
-    grab top k
-    we require that the enum_dict be ordered
-    """
-    enum_list = list(enum_dict)
-    done = False
-    scores = []
-    def substitute_once(r: pre.Pregex) -> pre.Pregex:
-        #REMINDER, there is the sub argument which is required in here
-        nonlocal done
-        nonlocal scores
-        if done:
-            return r
-        else: 
-            if r == sub:
-                done = True
-                scores.append(enum_dict[sub])
-                return Hole()
-            else: 
-                return r.map(substitute_once) #TODO
 
-    solutions = []
-    for sub in enum_list: 
-        while True:
-            if len(solutions) == k: 
-                assert k == len(scores)
-                return tuple(zip(solutions, scores))
-            solution = substitute_once(reg)
-            if done:
-                done = False
-                solutions.append(solution)
-            else: break
 
-    if len(solutions) == 0:
-        return tuple(((reg, 0.0),))
-
-    assert len(solutions) == len(scores)
-    return tuple(zip(solutions, scores))
-
-    # holey = make_holey_sup_inner(r)
-    # return holey, torch.Tensor([scores])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -120,13 +65,10 @@ if __name__ == "__main__":
     parser.add_argument('--nosave', action='store_true')
     parser.add_argument('--start_with_holes', action='store_true')
     parser.add_argument('--variance_reduction', action='store_true')
-    parser.add_argument('--enum_dict', type=int, default=1000)
     args = parser.parse_args()
 
     max_length = 30
     batch_size = 200
-
-
 
     print("Loading model", flush=True)
     try:
@@ -135,7 +77,7 @@ if __name__ == "__main__":
             print('found saved model, loading pretrained model with holes')
         else:
             model=torch.load("./sketch_model_pretrained.p")
-            print('found saved model, loading pretrained model (without holes)')
+            print('found saved model, loading pretrained model')
 
     except FileNotFoundError:
         print("no saved model, creating new one")
@@ -143,15 +85,6 @@ if __name__ == "__main__":
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
-
-
-    #######create the enum_dict ######
-    print("creating the enum_dict")
-
-    d = {r: s for r, s in enumerate_reg(13)} #TODO #13 gives 24888
-    #sort dict
-    enum_dict = OrderedDict(sorted(d.items(), key=lambda s: -s[1]))
-    print("size of enum dict is", len(enum_dict))
 
 
     ######## Pretraining without holes ########
@@ -213,7 +146,7 @@ if __name__ == "__main__":
 
 
     max_length = 30
-    batch_size = 100
+    batch_size = 200
 
     ####### train with holes ########
     print("training with holes")
@@ -237,16 +170,46 @@ if __name__ == "__main__":
             optimizer.zero_grad()
         Dc, c, _, _, r = getBatch()
 
-        #TODO: deal with this line:
-        holey_r, holescore = zip(*[ make_holey_supervised(reg, enum_dict, k=1)[0] for reg in r]) # i think this is the line i have to change 
-
+        holey_r, holescore = zip(*[make_holey(reg) for reg in r])
         sketch = [reg.flatten() for reg in holey_r]
 
         if not args.pretrain_holes:
-            #holescore = torch.cat(holescore, 0).cuda()
+            holescore = torch.cat(holescore, 0).cuda()
+            #full_program_score = model.score(Dc, c, autograd=False)
 
-            #control 2:ty
-            objective = model.score(Dc, sketch, autograd=True)
+            sketch_prior = torch.cat(tuple(sketch_logprior(sk) for sk in holey_r), 0).cuda()
+
+            #put holes into r
+            #calculate score of hole
+
+            #I think this is the right objective ... check https://arxiv.org/pdf/1506.05254.pdf - actually don't, not relevant
+
+            #print(holescore.size())
+            #print(full_program_score.size()
+            #print(full_program_score)
+            #print(torch.exp(-full_program_score))
+            #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)*torch.exp(-full_program_score)
+            #objective = model.score(Dc, sketch, autograd=True)*torch.exp(holescore)
+            #objective = model.score(Dc, sketch, autograd=True)*holescore
+
+            """log E_{S~Q) P(y|S)
+>= E_{S~Q) log P(y|S)
+= E{S~R} Q(S)/R(S) log P(y|S)"""
+    
+            #variance reduction term to help with learning
+                 #Dc is a list of lists of strings (which are iterables)
+
+            #can do something silly like average embedding
+
+            
+            objective = torch.exp(model.score(Dc, sketch, autograd=True)) / torch.exp(sketch_prior) * (holescore - model.variance_red.data) - torch.pow((holescore - model.variance_red),2)
+            #objective = model.score(Dc, sketch, autograd=True) / torch.exp(sketch_prior) * holescore
+
+            #objective = model.score(Dc, sketch, autograd=True)*(holescore - sketch_prior)
+            #control:
+            #objective = model.score(Dc, c, autograd=True)
+            #control 2:
+            #objective = model.score(Dc, sketch, autograd=True)
 
             #objective = model.score(Dc, sketch, autograd=True)*(holescore - full_program_score)
             #print(objective.size())

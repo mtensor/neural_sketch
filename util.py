@@ -16,6 +16,17 @@ from sketch_project import Hole
 import dill
 import random
 
+class Hole(pre.Pregex):
+    def __new__(cls): return super(Hole, cls).__new__(cls, None)
+    def __repr__(self): return "(HOLE)"
+    def flatten(self, char_map={}, escape_strings=False):
+        return [type(self)]
+    def walk(self, depth=0):
+        """
+        walks through the nodes
+        """
+        yield self, depth
+
 
 prim_list = sketchPrimitives()
 specials = ["r_kleene", "r_plus", "r_maybe", "r_alt", "r_concat"]
