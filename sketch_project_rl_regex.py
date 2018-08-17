@@ -15,22 +15,10 @@ import pregex as pre
 from vhe import VHE, DataLoader, Factors, Result, RegexPrior
 import random
 import math
-
+from util import Hole
 
 regex_prior = RegexPrior()
 #k_shot = 4
-
-
-class Hole(pre.Pregex):
-    def __new__(cls): return super(Hole, cls).__new__(cls, None)
-    def __repr__(self): return "(HOLE)"
-    def flatten(self, char_map={}, escape_strings=False):
-        return [type(self)]
-    def walk(self, depth=0):
-        """
-        walks through the nodes
-        """
-        yield self, depth
 
 
 
