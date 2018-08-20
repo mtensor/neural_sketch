@@ -25,6 +25,8 @@ sys.path.append("/om/user/mnye/ec")
 from grammar import Grammar
 from deepcoderPrimitives import deepcoderProductions, flatten_program
 
+from program import Application, Hole
+
 import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 
@@ -60,13 +62,13 @@ def isIntFunction(tp):
         except UnificationFailure:
             return False
 
-def sampleIO(program, tp): #TODO
+def sampleIO(program, tp, k_shot=4): #TODO
     #needs to have constraint stuff
     N_EXAMPLES = 5
     RANGE = 30
     LIST_LEN_RANGE = 8
     #stolen from Luke. Should be abstracted in a class of some sort.
-    def _featuresOfProgram(self, program, tp):
+    def _featuresOfProgram(program, tp, k_shot=4):
         e = program.evaluate([])
         examples = []
         if isListFunction(tp):
@@ -75,40 +77,89 @@ def sampleIO(program, tp): #TODO
             sample = lambda: random.randint(0, RANGE)
         else:
             return None
-        for _ in range(self.N_EXAMPLES*5):
+        for _ in range(N_EXAMPLES*5):
             x = sample()
             try:
                 y = e(x)
                 #eprint(tp, program, x, y)
+                if type(y) == int:
+                    y = [y] #TODO fix this dumb hack ...    
+                if type(x) == int:
+                    x = [x] #TODO fix this dumb hack ...  
+
+
                 examples.append( (x, y) )
+
+
             except: continue
-            if len(examples) >= self.N_EXAMPLES: break
+            if len(examples) >= k_shot: break
         else:
             return None #What do I do if I get a None?? Try another program ...
         return examples
 
-    return _featuresOfProgram(program, tp)
+    return _featuresOfProgram(program, tp, k_shot=k_shot)
 
 def sample_request(): #TODO
     requests = [
     arrow(tlist(tint), tlist(tint)),
     arrow(tlist(tint), tint),
-    arrow(tint, tlist(tint)),
+    #arrow(tint, tlist(tint)),
     arrow(tint, tint)
     ]
 
-    return random.choices(requests, weights=[4,3,2,1]) #TODO
+    return random.choices(requests, weights=[4,3,1])[0] #TODO
 
 def deepcoder_vocab(grammar, n_inputs=3): 
     return grammar.primitives + ['input_' + str(i) for i in range(n_inputs)] #TODO
 
-def make_holey_deepcoder(prog, k, g):
-    choices = g.enumerateHoles(self, request, prog, distance=100.0, k=k)
+def make_holey_deepcoder(prog, k, g, request): #(prog, args.k, grammar, request)
+    choices = g.enumerateHoles(request, prog, distance=100.0, k=k) 
+    print("choices", list(choices))
     progs, weights = zip(*choices)
     if k > 1:
         return random.choices(progs, weights=weights, k=1)[0]
     else:
         return progs[0] #i think it will output a list? #TODO
+
+def getInstance(k_shot=4):
+    """
+    Returns a single problem instance, as input/target strings
+    """
+    #TODO
+    #rint("starting getIntance")
+    while True:
+        #request = arrow(tlist(tint), tint, tint)
+        #print("starting getIntance loop")
+        request = sample_request()
+        #print("request", request)
+        p = grammar.sample(request) #grammar not abstracted well in this script
+        #print("program:", p)
+        pseq = flatten_program(p)
+        IO = sampleIO(p, request, k_shot)
+        
+        if IO == None: #TODO, this is a hack!!!
+            continue
+        if any(y==None for x,y in IO):
+            continue
+
+        #IO = [IO] #(idk what the right representation is)
+        #print("IO:", IO)
+        if all(len(x)<max_length and len(y)<max_length for x, y in IO): break
+    return {'IO':IO, 'pseq':pseq, 'p':p, 'tp': request}
+
+def getBatch():
+    """
+    Create a batch of problem instances, as tensors
+    """
+    k_shot = random.choice(range(3,6)) #this means from 3 to 5 examples
+
+    instances = [getInstance(k_shot=k_shot) for i in range(batch_size)]
+    IO = [inst['IO'] for inst in instances]
+    p = [inst['p'] for inst in instances]
+    pseq = [inst['pseq'] for inst in instances]
+    tp = [inst['tp'] for inst in instances]
+    return IO, pseq, p, tp 
+
 
 
 if __name__ == "__main__":
@@ -119,10 +170,10 @@ if __name__ == "__main__":
     parser.add_argument('--nosave', action='store_true')
     parser.add_argument('--start_with_holes', action='store_true')
     #parser.add_argument('--variance_reduction', action='store_true')
-    parser.add_argument('--k', type=int, default=1000) #TODO
+    parser.add_argument('--k', type=int, default=3) #TODO
     args = parser.parse_args()
 
-    max_length = 40
+    max_length = 30
     batch_size = 100
 
 
@@ -146,53 +197,21 @@ if __name__ == "__main__":
 
     ######## Pretraining without holes ########
 
-    def getInstance(k_shot=4):
-        """
-        Returns a single problem instance, as input/target strings
-        """
-        #TODO
-        while True:
-            #request = arrow(tlist(tint), tint, tint)
-            request = sample_request()
-            p = grammar.sample(request) #grammar not abstracted well in this script
-            pseq = flatten_program(p)
-            IO = [sampleIO(p, request) for _ in range(k_shot)]
-            
-            if any(io == None for io in IO): #TODO, this is a hack!!!
-                continue
-
-            IO = [IO] #(idk what the right representation is) 
-            if all(len(x)<max_length and len(y)<max_length for x, y in IO): break
-        return {'IO':IO, 'pseq':pseq, 'p':p}
-
-    def getBatch():
-        """
-        Create a batch of problem instances, as tensors
-        """
-        k_shot = random.choice(range(3,6)) #this means from 3 to 5 examples
-
-        instances = [getInstance(k_shot=k_shot) for i in range(batch_size)]
-        IO = [inst['IO'] for inst in instances]
-        p = [inst['p'] for inst in instances]
-        pseq = [inst['pseq'] for inst in instances]
-        return IO, pseq, p
-
+    #make this a function...
     if args.pretrain:
-
         print("pretraining", flush=True)
         if not hasattr(model, 'pretrain_iteration'):
             model.pretrain_iteration = 0
             model.pretrain_scores = []
 
-        # if args.debug:
-        #     Dc, c, _, _, _ = getBatch()
+        if args.debug:
+            IO, pseq, _, _ = getBatch()
 
         for i in range(model.pretrain_iteration, 20000):
             if not args.debug:
-                IO, pseq, _ = getBatch()
+                IO, pseq, _, _ = getBatch()
 
-            score = model.optimiser_step(IO, pseq) #TODO make sure inputs are correctly formatted
-
+            score, _ = model.optimiser_step(IO, pseq) #TODO make sure inputs are correctly formatted
             model.pretrain_scores.append(score)
             model.pretrain_iteration += 1
             if i%10==0: print("pretrain iteration", i, "score:", score, flush=True)
@@ -203,20 +222,13 @@ if __name__ == "__main__":
     ######## End Pretraining without holes ########
 
 
-    max_length = 30
-    batch_size = 100
 
     ####### train with holes ########
+
+    #make this a function (or class, whatever)
     print("training with holes")
     #model = model.with_target_vocabulary(deepcoder_vocab) #TODO
     model.cuda()
-
-    # if args.variance_reduction:
-    #     if not hasattr(model, 'variance_red'):
-    #         model.variance_red = nn.Parameter(torch.Tensor([1])).cuda()
-
-    # if not args.pretrain_holes:
-    #     optimizer = optim.Adam(model.parameters(), lr=1e-2) #TODO, deal with this
 
     if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
@@ -224,15 +236,10 @@ if __name__ == "__main__":
         model.hole_scores = []
     for i in range(model.iteration, 10000):
 
-        # if not args.pretrain_holes:
-        #     optimizer.zero_grad()
-        IO, pseq, p = getBatch()
-
-
-        holey_p = [make_holey_deepcoder(prog, args.k, grammar) for prog in p] #TODO
-
+        IO, pseq, p, tp = getBatch()
+        #assert False
+        holey_p = [make_holey_deepcoder(prog, args.k, grammar, request) for prog, request in zip(p, tp)] #TODO
         sketch = [flatten_program(prog) for prog in holey_p]
-
         objective, _ = model.optimiser_step(IO, sketch)
 
         #TODO: also can try RL objective, but unclear why that would be better.
@@ -255,7 +262,7 @@ if __name__ == "__main__":
             print(*inst['IO'])
             print("inferred:", sample)
 
-        if i%100==0: # and not i==0: 
+        if i%500==0: # and not i==0: 
             if not args.nosave:
                 torch.save(model, './deepcoder_holes_ep_{}.p'.format(str(i)))
                 torch.save(model, './deepcoder_holes.p')
