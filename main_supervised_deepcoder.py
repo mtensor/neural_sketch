@@ -11,11 +11,12 @@ import torch
 from torch import nn, optim
 
 from pinn import RobustFill
+from pinn import SyntaxCheckingRobustFill #TODO
 import random
 import math
 
 from collections import OrderedDict
-from util import enumerate_reg, Hole
+#from util import enumerate_reg, Hole
 
 
 import sys
@@ -25,23 +26,81 @@ from grammar import Grammar
 from deepcoderPrimitives import deepcoderProductions, flatten_program
 
 import math
-from type import tpregex, Context
+from type import Context, arrow, tint, tlist, tbool, UnificationFailure
+
 
 
 productions = deepcoderProductions() #TODO - figure out good production probs
-
-
 grammar = Grammar.fromProductions(productions)
 
-def parseprogram(): #TODO
-    #figure out if you want to seperate the fn's and non-fn's
+def parseprogram(): #TODO 
     pass
 
-def sampleIO(): #TODO
-    pass
 
-def deepcoder_vocab(n_inputs=3): 
-    return grammar.names + ['input_' + str(i) for i in range(n_inputs)] #TODO
+def isListFunction(tp):
+    try:
+        Context().unify(tp, arrow(tlist(tint), tint)) #TODO, idk if this will work
+        return True
+    except UnificationFailure:
+        try:
+            Context().unify(tp, arrow(tlist(tint), tlist(tint))) #TODO, idk if this will work
+            return True
+        except UnificationFailure:
+            return False
+
+
+def isIntFunction(tp):
+    try:
+        Context().unify(tp, arrow(tint, tint)) #TODO, idk if this will work
+        return True
+    except UnificationFailure:
+        try:
+            Context().unify(tp, arrow(tint, tlist(tint))) #TODO, idk if this will work
+            return True
+        except UnificationFailure:
+            return False
+
+def sampleIO(program, tp): #TODO
+    #needs to have constraint stuff
+    N_EXAMPLES = 5
+    RANGE = 30
+    LIST_LEN_RANGE = 8
+    #stolen from Luke. Should be abstracted in a class of some sort.
+    def _featuresOfProgram(self, program, tp):
+        e = program.evaluate([])
+        examples = []
+        if isListFunction(tp):
+            sample = lambda: random.sample(range(RANGE), random.randint(0, LIST_LEN_RANGE))
+        elif isIntFunction(tp):
+            sample = lambda: random.randint(0, RANGE)
+        else:
+            return None
+        for _ in range(self.N_EXAMPLES*5):
+            x = sample()
+            try:
+                y = e(x)
+                #eprint(tp, program, x, y)
+                examples.append( (x, y) )
+            except: continue
+            if len(examples) >= self.N_EXAMPLES: break
+        else:
+            return None #What do I do if I get a None?? Try another program ...
+        return examples
+
+    return _featuresOfProgram(program, tp)
+
+def sample_request(): #TODO
+    requests = [
+    arrow(tlist(tint), tlist(tint)),
+    arrow(tlist(tint), tint),
+    arrow(tint, tlist(tint)),
+    arrow(tint, tint)
+    ]
+
+    return random.choices(requests, weights=[4,3,2,1]) #TODO
+
+def deepcoder_vocab(grammar, n_inputs=3): 
+    return grammar.primitives + ['input_' + str(i) for i in range(n_inputs)] #TODO
 
 def make_holey_deepcoder(prog, k, g):
     choices = g.enumerateHoles(self, request, prog, distance=100.0, k=k)
@@ -51,13 +110,6 @@ def make_holey_deepcoder(prog, k, g):
     else:
         return progs[0] #i think it will output a list? #TODO
 
-def sample_request():
-    pass
-
-# implement grammar.sampleprogram() #not hard, just grammar.sample should be fine 
-
-    # holey = make_holey_sup_inner(r)
-    # return holey, torch.Tensor([scores])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -74,6 +126,8 @@ if __name__ == "__main__":
     batch_size = 100
 
 
+    vocab = deepcoder_vocab(grammar)
+
     print("Loading model", flush=True)
     try:
         if args.start_with_holes:
@@ -85,7 +139,7 @@ if __name__ == "__main__":
 
     except FileNotFoundError:
         print("no saved model, creating new one")
-        model = RobustFill(input_vocabularies=[], target_vocabulary=deepcoder_vocab, max_length=max_length) #TODO
+        model = SyntaxCheckingRobustFill(input_vocabularies=[], target_vocabulary=vocab, max_length=max_length) #TODO
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -102,9 +156,13 @@ if __name__ == "__main__":
             request = sample_request()
             p = grammar.sample(request) #grammar not abstracted well in this script
             pseq = flatten_program(p)
-            IO = [sampleIO(p) for i in range(k_shot)] #TODO
-            IO = [IO] #(idk what the right representation is)
-            if all(len(x)<max_length for x in IO): break
+            IO = [sampleIO(p, request) for _ in range(k_shot)]
+            
+            if any(io == None for io in IO): #TODO, this is a hack!!!
+                continue
+
+            IO = [IO] #(idk what the right representation is) 
+            if all(len(x)<max_length and len(y)<max_length for x, y in IO): break
         return {'IO':IO, 'pseq':pseq, 'p':p}
 
     def getBatch():
@@ -126,8 +184,8 @@ if __name__ == "__main__":
             model.pretrain_iteration = 0
             model.pretrain_scores = []
 
-        if args.debug:
-            Dc, c, _, _, _ = getBatch()
+        # if args.debug:
+        #     Dc, c, _, _, _ = getBatch()
 
         for i in range(model.pretrain_iteration, 20000):
             if not args.debug:
@@ -157,8 +215,8 @@ if __name__ == "__main__":
     #     if not hasattr(model, 'variance_red'):
     #         model.variance_red = nn.Parameter(torch.Tensor([1])).cuda()
 
-    if not args.pretrain_holes:
-        optimizer = optim.Adam(model.parameters(), lr=1e-2) #TODO, deal with this
+    # if not args.pretrain_holes:
+    #     optimizer = optim.Adam(model.parameters(), lr=1e-2) #TODO, deal with this
 
     if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
@@ -166,19 +224,18 @@ if __name__ == "__main__":
         model.hole_scores = []
     for i in range(model.iteration, 10000):
 
-        if not args.pretrain_holes:
-            optimizer.zero_grad()
+        # if not args.pretrain_holes:
+        #     optimizer.zero_grad()
         IO, pseq, p = getBatch()
 
 
-        holey_p = [make_holey_deepcoder(prog, args.k) for prog in p] #TODO
+        holey_p = [make_holey_deepcoder(prog, args.k, grammar) for prog in p] #TODO
 
         sketch = [flatten_program(prog) for prog in holey_p]
 
         objective, _ = model.optimiser_step(IO, sketch)
 
-        #TODO: also can try RL objective, but unclear why that would be good.
-
+        #TODO: also can try RL objective, but unclear why that would be better.
 
         model.iteration += 1
         model.hole_scores.append(objective)
@@ -193,6 +250,7 @@ if __name__ == "__main__":
             except: sample = samples[index]
             #sample = samples[index]
             print("actual program:" )
+            print(inst['p'])
             print("generated examples:")
             print(*inst['IO'])
             print("inferred:", sample)
