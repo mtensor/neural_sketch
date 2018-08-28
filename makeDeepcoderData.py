@@ -2,7 +2,7 @@
 
 import pickle
 
-from main_supervised_deepcoder import getInstance, grammar, parseprogram, make_holey_deepcoder
+from deepcoder_util import parseprogram, make_holey_deepcoder
 import time
 
 from collections import namedtuple
@@ -20,6 +20,9 @@ import math
 from type import Context, arrow, tint, tlist, UnificationFailure
 
 from dc_program import generate_IO_examples, compile
+
+from itertools import zip_longest
+
 #from dc_program import Program as dc_Program
 
 def make_deepcoder_data(filename, with_holes=False, size=10000000, k=20):
@@ -47,7 +50,7 @@ def make_deepcoder_data(filename, with_holes=False, size=10000000, k=20):
 #I want a list of namedTuples
 
 Datum = namedtuple('Datum', ['tp', 'p', 'pseq', 'IO', 'sketch', 'sketchseq'])
-
+Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs'])
 
 def convert_dc_program_to_ec(dc_program, tp):
 	source = dc_program.src
@@ -91,8 +94,7 @@ def convert_dc_program_to_ec(dc_program, tp):
 	return prog
 
 
-def convert_to_datum(source, N=5, V=512, L=10):
-	t = time.time()
+def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False):
 	source = source.replace(' | ', '\n')
 	dc_program = compile(source, V=V, L=L)
 
@@ -109,30 +111,63 @@ def convert_to_datum(source, N=5, V=512, L=10):
 	tp = arrow( *(ins+[out]) )
 
 	#find program p
-	print(time.time()- t)
 	pseq = convert_dc_program_to_ec(dc_program, tp)
-	print(time.time()- t)
 
-	#print(tp)
-	#print(pseq)
 	#find pseq
-	
 	p = parseprogram(pseq, tp) #TODO: use correct grammar, and 
-	print(time.time()- t)
-	#find sketch
-	k = 4
-	sketch = make_holey_deepcoder(p, k, grammar, tp) #TODO
-	print(time.time()- t)
-	print("post long time")
-	#find sketchseq
-	sketchseq = flatten_program(sketch)
-	print(time.time()- t)
+
+	if compute_sketches:
+		#find sketch
+		k = 20
+		sketch = make_holey_deepcoder(p, k, grammar, tp) #TODO
+
+		#find sketchseq
+		sketchseq = flatten_program(sketch)
+	else:
+		sketch, sketchseq = None, None
+
 	return Datum(tp, p, pseq, IO, sketch, sketchseq)
+
+
+def grouper(iterable, n, fillvalue=None):
+	"Collect data into fixed-length chunks or blocks"
+	# grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+	args = [iter(iterable)] * n
+	return zip_longest(*args, fillvalue=fillvalue)
+
+
+def batchloader(lines, batchsize=100, N=5, V=512, L=10, compute_sketches=False):
+        
+	grouped_lines = grouper(lines, batchsize)
+
+	for group in grouped_lines:
+		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in group)
+
+		tps, ps, pseqs, IOs, sketchs, sketchseqs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq) for datum in data])
+
+		yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs)
+
+
 
 
 if __name__=='__main__':
 
-	convert_to_datum("a <- [int] | b <- [int] | c <- ZIPWITH + b a | d <- COUNT isEVEN c | e <- ZIPWITH MAX a c | f <- MAP MUL4 e | g <- TAKE d f")
+
+	convert_source_to_datum("a <- [int] | b <- [int] | c <- ZIPWITH + b a | d <- COUNT isEVEN c | e <- ZIPWITH MAX a c | f <- MAP MUL4 e | g <- TAKE d f")
+
+	filename = 'data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt'
+	train_data = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
+
+	test_data = ''
+
+	lines = (line.rstrip('\n') for i, line in enumerate(open(filename)) if i != 0) #remove first line
+
+	for batch in batchloader(lines):
+		assert False
+
+
+
+
 
 	#path = 'data/pretrain_data_v1_alt.p'
 	#make_deepcoder_data(path, with_holes=True, k=20)
