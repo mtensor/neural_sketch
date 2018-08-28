@@ -1,0 +1,76 @@
+#IDEAS for project domain:
+
+
+Meta desiderata:
+
+- Josh needs to like it
+- AI/DL ppl need to like it
+- It should work
+- Armando should care about it
+- It needs to bootstrap to other work; ppl should care about it
+- Also should bootstrap expertise I/we have 
+
+Technical desiderata:
+
+- compositional?
+- requires learning to learn
+- inference should be hard but not impossible - does that mean a big NN could solve?
+- a big dumb nn shouldn't be able to solve it - ex robustfill string transforms are not great
+
+
+Ideas:
+
+1) comprehensions (list, string, dict)
+2) visual workflow exploration - A simplified string/token version?
+3) string transformations using regex - josh is unsure if this is right ...  
+4) other transformations
+5) Java api functions - why not? - Josh kinda said no ... 
+6) Clevr/Shrdlu domains 
+
+7) lifelong learning stuff - omni, other standard DL stuff
+8) regex domain - grep regexes
+
+9) Omni stuff - both my version and the BPL version?
+
+10) kevin's graphics program project 
+ - could combine modalities
+ - create generative models
+
+
+
+Techniques:
+
+1) learning to sketch
+2) integrating symbolic inputs 
+3) EC/WSVAE
+4) VHE stuff
+5) Tree rnns
+6) RL???
+7) integrating 
+
+
+Put the grammar output tree nns on EC
+- find a way to adapt compression to this framework
+- use nn to do it??
+
+- running into speed problem
+- so enumerating holes should help
+
+
+unrelated problem:
+- with regexes, the tree output formulation is quite bad for pattern recognition. some way to fix this, or is it case by case???
+
+- are all hindly milner type defs trees? -- the term is "algebriac data types", and yes
+
+
+
+combination of top-down grammar-fixed tree rnns and bottom up somehow ----- for for loop problem
+
+
+good paper to write:
+"self-supervised learning of generative programs with variational inference"
+
+alternatively, can just write the paper that makes EC work with these grammer-forcing tree rnns -- might be able to get it to work w/ completely same small amount of engineering --- think about this!!!!
+
+
+
