@@ -8,3 +8,6 @@ ln -s ../../sketch_model_pretrain_holes.p
 #data:
 ln -s ../../dates.p
 ln -s ../../regex_data_csv_900.p
+
+#deepcoder data
+ln -s ../../data

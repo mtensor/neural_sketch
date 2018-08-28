@@ -45,7 +45,7 @@ def MUL_bounds(A, B):
 
 def scanl1_bounds(l, A, B, L):
     if l.src == '+' or l.src == '-':
-        return [(A/L+1, B/L)]
+        return [(int(A/L)+1, int(B/L))]
     elif l.src == '*':
         return [(int((max(0, A)+1) ** (1.0 / L)), int((max(0, B)) ** (1.0 / L)))]
     elif l.src == 'MIN' or l.src == 'MAX':
@@ -61,13 +61,13 @@ def get_language(V):
 
         Function('INC',     (int, int),          lambda i: i+1,                                       lambda A_B10: [(A_B10[0], A_B10[1]-1)]),
         Function('DEC',     (int, int),          lambda i: i-1,                                       lambda A_B11: [(A_B11[0]+1, A_B11[1])]),
-        Function('SHL',     (int, int),          lambda i: i*2,                                       lambda A_B12: [((A_B12[0]+1)/2, A_B12[1]/2)]),
+        Function('SHL',     (int, int),          lambda i: i*2,                                       lambda A_B12: [(int((A_B12[0]+1)/2), int(A_B12[1]/2))]),
         Function('SHR',     (int, int),          lambda i: int(float(i)/2),                           lambda A_B13: [(2*A_B13[0], 2*A_B13[1])]),
         Function('doNEG',   (int, int),          lambda i: -i,                                        lambda A_B14: [(-A_B14[1]+1, -A_B14[0]+1)]),
-        Function('MUL3',    (int, int),          lambda i: i*3,                                       lambda A_B15: [((A_B15[0]+2)/3, A_B15[1]/3)]),
+        Function('MUL3',    (int, int),          lambda i: i*3,                                       lambda A_B15: [(int((A_B15[0]+2)/3), int(A_B15[1]/3))]),
         Function('DIV3',    (int, int),          lambda i: int(float(i)/3),                           lambda A_B16: [(A_B16[0], A_B16[1])]),
 
-        Function('MUL4',    (int, int),          lambda i: i*4,                                       lambda A_B17: [((A_B17[0]+3)/4, A_B17[1]/4)]),
+        Function('MUL4',    (int, int),          lambda i: i*4,                                       lambda A_B17: [(int((A_B17[0]+3)/4), int(A_B17[1]/4))]),
         Function('DIV4',    (int, int),          lambda i: int(float(i)/4),                           lambda A_B18: [(A_B18[0], A_B18[1])]),
         Function('SQR',     (int, int),          lambda i: i*i,                                       lambda A_B19: SQR_bounds(A_B19[0], A_B19[1])),
         #Function('SQRT',    (int, int),          lambda i: int(sqrt(i)),                              lambda (A, B): [(max(0, A*A), B*B)]),
@@ -77,8 +77,8 @@ def get_language(V):
         Function('isODD',   (int, bool),         lambda i: i % 2 == 1,                                lambda A_B22: [(A_B22[0], A_B22[1])]),
         Function('isEVEN',  (int, bool),         lambda i: i % 2 == 0,                                lambda A_B23: [(A_B23[0], A_B23[1])]),
 
-        Function('+',       (int, int, int),     lambda i, j: i+j,                                    lambda A_B24: [(A_B24[0]/2+1, A_B24[1]/2)]),
-        Function('-',       (int, int, int),     lambda i, j: i-j,                                    lambda A_B25: [(A_B25[0]/2+1, A_B25[1]/2)]),
+        Function('+',       (int, int, int),     lambda i, j: i+j,                                    lambda A_B24: [(int(A_B24[0]/2)+1, int(A_B24[1]/2))]),
+        Function('-',       (int, int, int),     lambda i, j: i-j,                                    lambda A_B25: [(int(A_B25[0]/2)+1, int(A_B25[1]/2))]),
         Function('*',       (int, int, int),     lambda i, j: i*j,                                    lambda A_B26: MUL_bounds(A_B26[0], A_B26[1])),
         Function('MIN',     (int, int, int),     lambda i, j: min(i, j),                              lambda A_B27: [(A_B27[0], A_B27[1])]),
         Function('MAX',     (int, int, int),     lambda i, j: max(i, j),                              lambda A_B28: [(A_B28[0], A_B28[1])]),
@@ -94,7 +94,7 @@ def get_language(V):
         Function('LAST',    ([int], int),        lambda xs: xs[-1] if len(xs)>0 else Null,            lambda A_B_L6: [(A_B_L6[0], A_B_L6[1])]),
         Function('MINIMUM', ([int], int),        lambda xs: min(xs) if len(xs)>0 else Null,           lambda A_B_L7: [(A_B_L7[0], A_B_L7[1])]),
         Function('MAXIMUM', ([int], int),        lambda xs: max(xs) if len(xs)>0 else Null,           lambda A_B_L8: [(A_B_L8[0], A_B_L8[1])]),
-        Function('SUM',     ([int], int),        lambda xs: sum(xs),                                  lambda A_B_L9: [(A_B_L9[0]/A_B_L9[2]+1, A_B_L9[1]/A_B_L9[2])]),
+        Function('SUM',     ([int], int),        lambda xs: sum(xs),                                  lambda A_B_L9: [(int(A_B_L9[0]/A_B_L9[2])+1, int(A_B_L9[1]/A_B_L9[2]))]),
     ] + \
     [Function(
             'MAP ' + l.src,

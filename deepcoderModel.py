@@ -27,8 +27,6 @@ def variable(x, volatile=False, cuda=False):
     return Variable(x, volatile=volatile)
 
 
-
-
 class RecurrentFeatureExtractor(nn.Module):
     def __init__(self, _=None,
                  cuda=False,

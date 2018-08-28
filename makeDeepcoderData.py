@@ -98,6 +98,8 @@ def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False):
 	source = source.replace(' | ', '\n')
 	dc_program = compile(source, V=V, L=L)
 
+	if dc_program is None:
+		return None
 	#find IO
 	IO = generate_IO_examples(dc_program, N=N, L=L, V=V)
 
@@ -135,16 +137,14 @@ def grouper(iterable, n, fillvalue=None):
 	args = [iter(iterable)] * n
 	return zip_longest(*args, fillvalue=fillvalue)
 
-
 def batchloader(lines, batchsize=100, N=5, V=512, L=10, compute_sketches=False):
-        
-	grouped_lines = grouper(lines, batchsize)
 
-	for group in grouped_lines:
-		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in group)
+	data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in lines)
+	data = (x for x in data if x is not None)
+	grouped_data = grouper(data, batchsize)
 
-		tps, ps, pseqs, IOs, sketchs, sketchseqs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq) for datum in data])
-
+	for group in grouped_data:
+		tps, ps, pseqs, IOs, sketchs, sketchseqs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq) for datum in group])
 		yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs)
 
 

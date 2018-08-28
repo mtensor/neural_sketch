@@ -42,7 +42,32 @@ from makeDeepcoderData import batchloader
 def deepcoder_vocab(grammar, n_inputs=3): 
     return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>'] #TODO
 
+def tokenize_for_robustfill(IOs):
+    """
+    tokenizes a batch of IOs
+    """
+    newIOs = []
+    for examples in IOs:
+        tokenized = []
+        for xs, y in examples:
+            if isinstance(y, list):
+                y = ["LIST_START"] + y + ["LIST_END"]
+            else:
+                y = [y]
 
+            serializedInputs = []
+            for x in xs:
+                if isinstance(x, list):
+                    x = ["LIST_START"] + x + ["LIST_END"]
+                else:
+                    x = [x]
+                serializedInputs.extend(x)
+
+            tokenized.append((serializedInputs, y))
+
+        newIOs.append(tokenized)
+
+    return newIOs
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -59,8 +84,12 @@ if __name__ == "__main__":
     max_length = 30
     batch_size = 100
 
+    Vrange = 128
+
     train_data = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
     lines = (line.rstrip('\n') for i, line in enumerate(open(train_data)) if i != 0) #remove first line
+
+
 
 
 
@@ -77,7 +106,10 @@ if __name__ == "__main__":
 
     except FileNotFoundError:
         print("no saved model, creating new one")
-        model = SyntaxCheckingRobustFill(input_vocabularies=[list(range(-512, 512)), list(range(-512,512))], target_vocabulary=vocab, max_length=max_length) #TODO
+        model = SyntaxCheckingRobustFill(
+            input_vocabularies=[list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"],
+            list(range(-Vrange, Vrange+1))+["LIST_START", "LIST_END"]], 
+            target_vocabulary=vocab, max_length=max_length) #TODO
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -99,17 +131,31 @@ if __name__ == "__main__":
         for j in range(model.pretrain_epochs, 50): #TODO
             print(f"\tepoch {j}:")
 
-            for i, batch in enumerate(batchloader(lines, batchsize=100, N=5, V=512, L=10, compute_sketches=False)):
+            for i, batch in enumerate(batchloader(lines, batchsize=100, N=5, V=Vrange, L=10, compute_sketches=False)):
 
+
+                #print(batch.IOs)
+                #print(batch.pseqs)
+                # print(len(batch.IOs[0]))
+                # print(batch.IOs[0])
+                # print(batch.IOs[0][0])
+
+                IOs = tokenize_for_robustfill(batch.IOs)
+                # print("tokenized:")
+                # print(len(IOs[0]))
+                # print(IOs[0])
+                # print(IOs[0][0])
                 print("tic")
                 t = time.time()
-                score, syntax_score = model.optimiser_step(batch.IOs, batch.pseqs) #TODO make sure inputs are correctly formatted
+                score, syntax_score = model.optimiser_step(IOs, batch.pseqs) #TODO make sure inputs are correctly formatted
                 print(f"tock, network time: {time.time()-t}, other time: {t-t2}")
                 t2 = time.time()
                 model.pretrain_scores.append(score)
                 model.pretrain_iteration += 1
                 if i%1==0: print("pretrain iteration", i, "score:", score, "syntax score:", syntax_score, flush=True)
-
+                if i%200==0: 
+                    if not args.nosave:
+                        torch.save(model, './deepcoder_pretrained.p')
         #to prevent overwriting model:
         if not args.nosave:
             torch.save(model, './deepcoder_pretrained.p')
