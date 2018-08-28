@@ -15,7 +15,7 @@ import math
 
 from sketch_project_rl_regex import Hole
 
-from util import enumerate_reg, fill_hole, date_data, all_data, Hole
+from regex_util import enumerate_reg, fill_hole, date_data, all_data, Hole
 import time
 import pickle
 

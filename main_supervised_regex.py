@@ -17,7 +17,7 @@ import random
 import math
 
 from collections import OrderedDict
-from util import enumerate_reg, Hole
+from regex_util import enumerate_reg, Hole
 regex_prior = RegexPrior()
 #k_shot = 4
 

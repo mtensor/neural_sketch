@@ -1,0 +1,292 @@
+#deepcoder_util.py
+
+from builtins import super
+import pickle
+import string
+import argparse
+import random
+
+import torch
+from torch import nn, optim
+
+from pinn import RobustFill
+from pinn import SyntaxCheckingRobustFill
+import random
+import math
+import time
+
+from collections import OrderedDict
+#from util import enumerate_reg, Hole
+
+
+import sys
+sys.path.append("/om/user/mnye/ec")
+
+from grammar import Grammar, NoCandidates
+from deepcoderPrimitives import deepcoderProductions, flatten_program
+
+from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
+
+import math
+from type import Context, arrow, tint, tlist, tbool, UnificationFailure
+
+productions = deepcoderProductions() #TODO - figure out good production probs ... 
+grammar = Grammar.fromProductions(productions, logVariable=-5) #TODO
+
+def buildCandidate(request, context, environment, parsecontext, index_dict={}):
+    """Primitives that are candidates for being used given a requested type
+    If returnTable is false (default):
+    returns [((log)likelihood, tp, primitive, context)]
+    if returntable is true: returns {primitive: ((log)likelihood, tp, context)}"""
+    variable_list = ['input_' + str(i) for i in range(4)]
+
+    if len(parsecontext) == 0: raise NoCandidates()
+    chosen_str = parsecontext[0]
+    parsecontext = parsecontext[1:] #is this right?
+
+    candidate = None
+
+    #for l, t, p in self.productions:
+
+    if chosen_str in Primitive.GLOBALS: #if it is a primtive
+        p = Primitive.GLOBALS[chosen_str]
+        t = p.tp 
+        try:
+            newContext, t = t.instantiate(context)
+            newContext = newContext.unify(t.returns(), request)
+            t = t.apply(newContext)
+            #candidates.append((l, t, p, newContext))
+            candidate = (t, p, newContext)
+
+        except UnificationFailure:
+            ParseFailure()
+    
+    elif chosen_str in variable_list:
+
+        j = index_dict[chosen_str]
+        t = environment[j]
+    #for j, t in enumerate(environment):
+        try:
+            newContext = context.unify(t.returns(), request)
+            t = t.apply(newContext)
+            candidate = (t, Index(j), newContext)
+        except UnificationFailure:
+            ParseFailure()
+    else: #if it is a hole:
+        assert chosen_str == '<HOLE>' #TODO, choose correct representation of program
+        p = Hole()
+        t = request #[try all possibilities and backtrack] #p.inferType(context, environment, freeVariables) #TODO
+        # or hole is request.
+        try:
+            newContext, t = t.instantiate(context)
+            newContext = newContext.unify(t.returns(), request)
+            t = t.apply(newContext)
+            #candidates.append((l, t, p, newContext))
+            candidate = (t, p, newContext)
+
+        except UnificationFailure:
+            ParseFailure()
+
+    if candidate == None:
+        raise NoCandidates()
+
+
+    return parsecontext, candidate
+
+
+def parseprogram(pseq, request): #TODO 
+    num_inputs = len(request.functionArguments())
+
+    index_dict = {'input_' + str(i): num_inputs-i-1 for i in range(num_inputs)}
+
+    #request = something #TODO
+
+    def _parse(request, parsecontext, context, environment):
+        if request.isArrow():
+            parsecontext, context, expression = _parse(
+                request.arguments[1], parsecontext, context, [
+                    request.arguments[0]] + environment)
+            return parsecontext, context, Abstraction(expression) #TODO
+
+        parsecontext, candidate = buildCandidate(request, context, environment, parsecontext, index_dict=index_dict)
+
+
+        newType, chosenPrimitive, context = candidate
+   
+
+
+        # Sample the arguments
+        xs = newType.functionArguments()
+        returnValue = chosenPrimitive
+
+        for x in xs:
+            x = x.apply(context)
+            parsecontext, context, x = _parse(
+                x, parsecontext, context, environment)
+            returnValue = Application(returnValue, x)
+
+        return parsecontext, context, returnValue
+        
+
+    _, _, e = _parse(
+                    request, pseq, Context.EMPTY, [])
+    return e
+
+def make_holey_deepcoder(prog, k, g, request): #(prog, args.k, grammar, request)
+    #print(k)
+    choices = g.enumerateHoles(request, prog, k=k)
+
+    if len(list(choices)) == 0:
+        #if there are none, then use the original program 
+        choices = [(prog, 1)]
+
+    #print("prog:", prog, "choices", list(choices))
+    progs, weights = zip(*choices)
+    weights = [math.exp(w) for w in weights]
+
+    if k > 1:
+        x = random.choices(progs, weights=weights, k=1)
+        #print("x", x)
+        return x[0]
+    else:
+        return progs[0] #i think it will output a list? #TODO
+
+
+
+####unused####
+
+def sample_request(): #TODO
+    requests = [
+    arrow(tlist(tint), tlist(tint)),
+    arrow(tlist(tint), tint),
+    #arrow(tint, tlist(tint)),
+    arrow(tint, tint)
+    ]
+
+    return random.choices(requests, weights=[4,3,1])[0] #TODO
+
+
+
+
+
+def isListFunction(tp):
+    try:
+        Context().unify(tp, arrow(tlist(tint), tint)) #TODO, idk if this will work
+        return True
+    except UnificationFailure:
+        try:
+            Context().unify(tp, arrow(tlist(tint), tlist(tint))) #TODO, idk if this will work
+            return True
+        except UnificationFailure:
+            return False
+
+
+def isIntFunction(tp):
+    try:
+        Context().unify(tp, arrow(tint, tint)) #TODO, idk if this will work
+        return True
+    except UnificationFailure:
+        try:
+            Context().unify(tp, arrow(tint, tlist(tint))) #TODO, idk if this will work
+            return True
+        except UnificationFailure:
+            return False
+
+def sampleIO(program, tp, k_shot=4, verbose=False): #TODO
+    #needs to have constraint stuff
+    N_EXAMPLES = 5
+    RANGE = 30 #TODO
+    LIST_LEN_RANGE = 8
+    OUTPUT_RANGE = 128
+
+    #stolen from Luke. Should be abstracted in a class of some sort.
+    def _featuresOfProgram(program, tp, k_shot=4):
+        e = program.evaluate([])
+        examples = []
+        if isListFunction(tp):
+            sample = lambda: random.sample(range(-RANGE, RANGE), random.randint(0, LIST_LEN_RANGE))
+        elif isIntFunction(tp):
+            sample = lambda: random.randint(-RANGE, RANGE-1)
+        else:
+            return None
+        for _ in range(N_EXAMPLES*3):
+            x = sample()
+            #try:
+            #print("program", program, "e", e, "x", x)
+            y = e(x)
+            #eprint(tp, program, x, y)
+
+            if x == [] or y == []: 
+                if verbose: print("tripped empty list continue ")
+                continue   
+
+            if type(y) == int:
+                y = [y] #TODO fix this dumb hack ...    
+            if type(x) == int:
+                x = [x] #TODO fix this dumb hack ...
+
+            if any((num >= OUTPUT_RANGE) or (num < -OUTPUT_RANGE) for num in y): #this is a total hack
+                if verbose: print("tripped range continue", flush=True)
+                continue
+
+            examples.append( (x, y) )
+
+
+            # except:
+            #     print("tripped continue 2", flush=True)
+            #     continue
+
+            if len(examples) >= k_shot: break
+        else:
+            return None #What do I do if I get a None?? Try another program ...
+        return examples
+
+    return _featuresOfProgram(program, tp, k_shot=k_shot)
+
+def getInstance(k_shot=4, max_length=30, verbose=False, with_holes=False, k=None):
+    """
+    Returns a single problem instance, as input/target strings
+    """
+    #TODO
+    assert False, "this function has been depricated"
+    while True:
+        #request = arrow(tlist(tint), tint, tint)
+        #print("starting getIntance loop")
+        request = sample_request()
+        #print("request", request)
+        p = grammar.sample(request, maximumDepth=4) #grammar not abstracted well in this script
+        #print("program:", p)
+        
+        IO = sampleIO(p, request, k_shot, verbose=verbose)
+        if IO == None: #TODO, this is a hack!!!
+            if verbose: print("tripped IO==None continue")
+            continue
+        if any(y==None for x,y in IO):
+            if verbose: print("tripped y==None continue")
+            assert False
+            continue
+
+        pseq = flatten_program(p)
+        
+
+        if all(len(x)<max_length and len(y)<max_length for x, y in IO): 
+            d = {'IO':IO, 'pseq':pseq, 'p':p, 'tp': request}
+            if with_holes:
+                d['sketch'] = make_holey_deepcoder(p, k, grammar, request)
+                d['sketchseq'] = flatten_program(d['sketch'])
+            break
+        if verbose: print("retry sampling program")
+    return d
+
+def getBatch():
+    """
+    Create a batch of problem instances, as tensors
+    """
+    k_shot = random.choice(range(3,6)) #this means from 3 to 5 examples
+
+    instances = [getInstance(k_shot=k_shot, max_length=max_length) for i in range(batch_size)]
+    IO = [inst['IO'] for inst in instances]
+    p = [inst['p'] for inst in instances]
+    pseq = [inst['pseq'] for inst in instances]
+    tp = [inst['tp'] for inst in instances]
+    return IO, pseq, p, tp
