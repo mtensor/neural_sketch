@@ -361,12 +361,12 @@ class DeepcoderRecognitionModel(nn.Module):
             variables, [
                 (productions[k].view(1), t, prog) for k, (_, t, prog) in enumerate(
                     self.grammar.productions)])
-        print("WARNING: loss mode = dreamcoder")
+        #print("WARNING: loss mode = dreamcoder")
         return - g.logLikelihood(request, program) #program.logLikelihood(g)
 
 
     def optimizer_step(self, IO, program, request):
-        print("Warning, no batching yet")
+        #print("Warning, no batching yet")
 
         self.opt.zero_grad()
 
