@@ -1,6 +1,4 @@
 #Sketch project
-
-
 from builtins import super
 import pickle
 import string
@@ -19,25 +17,17 @@ import time
 from collections import OrderedDict
 #from util import enumerate_reg, Hole
 
-
 import sys
 sys.path.append("/om/user/mnye/ec")
 
 from grammar import Grammar, NoCandidates
 from deepcoderPrimitives import deepcoderProductions, flatten_program
-
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
-
 import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
-
 from deepcoder_util import parseprogram, grammar
-
 from makeDeepcoderData import batchloader
-
-
-
-
+from itertools import chain
 
 def deepcoder_vocab(grammar, n_inputs=3): 
     return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>'] #TODO
@@ -54,7 +44,6 @@ def tokenize_for_robustfill(IOs):
                 y = ["LIST_START"] + y + ["LIST_END"]
             else:
                 y = [y]
-
             serializedInputs = []
             for x in xs:
                 if isinstance(x, list):
@@ -62,36 +51,30 @@ def tokenize_for_robustfill(IOs):
                 else:
                     x = [x]
                 serializedInputs.extend(x)
-
             tokenized.append((serializedInputs, y))
-
         newIOs.append(tokenized)
-
     return newIOs
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--pretrain', action='store_true')
-    parser.add_argument('--pretrain_holes', action='store_true')
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--nosave', action='store_true')
     parser.add_argument('--start_with_holes', action='store_true')
     #parser.add_argument('--variance_reduction', action='store_true')
     parser.add_argument('-k', type=int, default=3) #TODO
-    parser.add_argument('--load_data', action='store_true')
     args = parser.parse_args()
 
     max_length = 30
-    batch_size = 100
+    batchsize = 200
 
     Vrange = 128
 
-    train_data = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
-    lines = (line.rstrip('\n') for i, line in enumerate(open(train_data)) if i != 0) #remove first line
-
-
-
-
+    train_data1 = 'data/DeepCoder_data/T2_A2_V512_L10_train.txt'
+    loader1 = batchloader(train_data1, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
+    train_data2 = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
+    loader2 = batchloader(train_data2, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
+    loader = chain(loader1, loader2)
 
     vocab = deepcoder_vocab(grammar)
 
@@ -103,7 +86,6 @@ if __name__ == "__main__":
         else:
             model=torch.load("./deepcoder_pretrained.p")
             print('found saved model, loading pretrained model (without holes)')
-
     except FileNotFoundError:
         print("no saved model, creating new one")
         model = SyntaxCheckingRobustFill(
@@ -131,25 +113,15 @@ if __name__ == "__main__":
         for j in range(model.pretrain_epochs, 50): #TODO
             print(f"\tepoch {j}:")
 
-            for i, batch in enumerate(batchloader(lines, batchsize=100, N=5, V=Vrange, L=10, compute_sketches=False)):
-
-
-                #print(batch.IOs)
-                #print(batch.pseqs)
-                # print(len(batch.IOs[0]))
-                # print(batch.IOs[0])
-                # print(batch.IOs[0][0])
+            for i, batch in enumerate(loader):
 
                 IOs = tokenize_for_robustfill(batch.IOs)
-                # print("tokenized:")
-                # print(len(IOs[0]))
-                # print(IOs[0])
-                # print(IOs[0][0])
-                print("tic")
+
                 t = time.time()
-                score, syntax_score = model.optimiser_step(IOs, batch.pseqs) #TODO make sure inputs are correctly formatted
-                print(f"tock, network time: {time.time()-t}, other time: {t-t2}")
+                score, syntax_score = model.optimiser_step(IOs, batch.pseqs)
+                print(f"network time: {time.time()-t}, other time: {t-t2}")
                 t2 = time.time()
+
                 model.pretrain_scores.append(score)
                 model.pretrain_iteration += 1
                 if i%1==0: print("pretrain iteration", i, "score:", score, "syntax score:", syntax_score, flush=True)
@@ -157,8 +129,8 @@ if __name__ == "__main__":
                     if not args.nosave:
                         torch.save(model, './deepcoder_pretrained.p')
         #to prevent overwriting model:
-        if not args.nosave:
-            torch.save(model, './deepcoder_pretrained.p')
+            if not args.nosave:
+                torch.save(model, './deepcoder_pretrained.p')
     ######## End Pretraining without holes ########
 
 
@@ -168,58 +140,39 @@ if __name__ == "__main__":
     #make this a function (or class, whatever)
     print("training with holes")
     model = model.with_target_vocabulary(vocab) #TODO
-    model.cuda()
+    model.cuda()  # just in case
 
     if not hasattr(model, 'iteration') or args.start_with_holes:
         model.iteration = 0
     if not hasattr(model, 'hole_scores'):
         model.hole_scores = []
-    if args.load_data:
-        with open(data_file, 'rb') as file:
-            data = pickle.load(file)
+    if not hasattr(model, 'epochs'):
+        model.epochs = 0
+
+    t2 = time.time()
+    for j in range(model.epochs, 20): #TODO
+        for i, batch in enumerate(batchloader(train_data, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=True)):
+            IOs = tokenize_for_robustfill(batch.IOs)
+            t = time.time()
+            objective, syntax_score = model.optimiser_step(IOs, batch.sketchseqs)
+            print(f"network time: {time.time()-t}, other time: {t-t2}")
+            t2 = time.time()            
+            #TODO: also can try RL objective, but unclear why that would be better.
+            model.iteration += 1
+            model.hole_scores.append(objective)
+            if i%1==0: 
+                print("iteration", i, "score:", objective, "syntax_score:", syntax_score, flush=True)
+            if i%200==0: 
+                if not args.nosave:
+                    torch.save(model, f'./deepcoder_holes_ep_{str(j)}_iter_{str(i)}.p')
+                    torch.save(model, './deepcoder_holes.p')
+            
+        if not args.nosave:
+            torch.save(model, './deepcoder_holes_ep_{}.p'.format(str(j)))
+            torch.save(model, './deepcoder_holes.p')
 
 
-    for i in range(model.iteration, 10000): #TODO
-
-        if args.load_data:
-            batch = data[i:i+batch_size]
-            IO = [datum['IO'] for datum in batch]
-            sketchseq = [datum['sketchseq'] for datum in batch]
-        else:
-            IO, pseq, p, tp = getBatch()
-            #assert False
-            holey_p = [make_holey_deepcoder(prog, args.k, grammar, request) for prog, request in zip(p, tp)] #TODO
-            sketchseq = [flatten_program(prog) for prog in holey_p]
-
-        objective, syntax_score = model.optimiser_step(IO, sketchseq)
-
-        #TODO: also can try RL objective, but unclear why that would be better.
-
-        model.iteration += 1
-        model.hole_scores.append(objective)
-        if i%1==0: 
-            print("iteration", i, "score:", objective, "syntax_score:", syntax_score, flush=True)
-        if i%100==0:
-            inst = getInstance()
-            print("inputs:", inst['IO'])
-            samples, scores, _ = model.sampleAndScore(batch_inputs=[inst['IO']], nRepeats=100) #Depending on the model
-            index = scores.index(max(scores))
-            #print(samples[index])
-            try: sample = parseprogram(list(samples[index])) #TODO
-            except: sample = samples[index]
-            #sample = samples[index]
-            print("actual program:" )
-            print(inst['p'])
-            print("generated examples:")
-            print(*inst['IO'])
-            print("inferred:", sample)
-
-        if i%500==0: # and not i==0: 
-            if not args.nosave:
-                torch.save(model, './deepcoder_holes_ep_{}.p'.format(str(i)))
-                torch.save(model, './deepcoder_holes.p')
-
-    ####### End train with holes ########
+        ####### End train with holes ########
 
 
 

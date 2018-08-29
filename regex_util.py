@@ -115,7 +115,7 @@ def pre_to_prog(regex: pre.pregex) -> ec.Program:
         print("WARNING: doing stupidest possible thing for Strings")
         return Application(Primitive.GLOBALS['r_concat'], Application( lookup_str(regex.arg[0]), pre_to_prog(pre.String(regex.arg[0:]) )))
     elif regex.type == 'Hole':
-        raise unimplemented
+        return Hole #TODO
     elif regex.type == 'CharacterClass':
         if regex.name ==  '.': return Primtive.GLOBALS['r_dot']
         elif regex.name ==  '\\d': return Primtive.GLOBALS['r_d']

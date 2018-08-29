@@ -100,10 +100,10 @@ def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False):
 
 	if dc_program is None:
 		return None
-	#find IO
+	# find IO
 	IO = generate_IO_examples(dc_program, N=N, L=L, V=V)
 
-	#find tp
+	# find tp
 	ins = [tint if inp == int else tlist(tint) for inp in dc_program.ins] 
 	if dc_program.out == int:
 		out = tint
@@ -112,18 +112,18 @@ def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False):
 		out = tlist(tint)
 	tp = arrow( *(ins+[out]) )
 
-	#find program p
+	# find program p
 	pseq = convert_dc_program_to_ec(dc_program, tp)
 
-	#find pseq
-	p = parseprogram(pseq, tp) #TODO: use correct grammar, and 
+	# find pseq
+	p = parseprogram(pseq, tp)  # TODO: use correct grammar, and 
 
 	if compute_sketches:
-		#find sketch
+		# find sketch
 		k = 20
 		sketch = make_holey_deepcoder(p, k, grammar, tp) #TODO
 
-		#find sketchseq
+		# find sketchseq
 		sketchseq = flatten_program(sketch)
 	else:
 		sketch, sketchseq = None, None
@@ -137,22 +137,27 @@ def grouper(iterable, n, fillvalue=None):
 	args = [iter(iterable)] * n
 	return zip_longest(*args, fillvalue=fillvalue)
 
-def batchloader(lines, batchsize=100, N=5, V=512, L=10, compute_sketches=False):
+def batchloader(train_data, batchsize=100, N=5, V=512, L=10, compute_sketches=False):
 
-	data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in lines)
-	data = (x for x in data if x is not None)
-	grouped_data = grouper(data, batchsize)
+	lines = (line.rstrip('\n') for i, line in enumerate(open(train_data)) if i != 0) #remove first line
 
-	for group in grouped_data:
-		tps, ps, pseqs, IOs, sketchs, sketchseqs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq) for datum in group])
-		yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs)
+	if batchsize==1:
+		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in lines)
+		yield from (x for x in data if x is not None)
+
+	else:
+		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in lines)
+		data = (x for x in data if x is not None)
+		grouped_data = grouper(data, batchsize)
+
+		for group in grouped_data:
+			tps, ps, pseqs, IOs, sketchs, sketchseqs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq) for datum in group if datum is not None])
+			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs)
 
 
 
 
 if __name__=='__main__':
-
-
 	convert_source_to_datum("a <- [int] | b <- [int] | c <- ZIPWITH + b a | d <- COUNT isEVEN c | e <- ZIPWITH MAX a c | f <- MAP MUL4 e | g <- TAKE d f")
 
 	filename = 'data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt'
@@ -163,7 +168,7 @@ if __name__=='__main__':
 	lines = (line.rstrip('\n') for i, line in enumerate(open(filename)) if i != 0) #remove first line
 
 	for batch in batchloader(lines):
-		assert False
+		print(any(datum is None for datum in batch))
 
 
 

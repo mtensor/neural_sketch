@@ -21,8 +21,18 @@ import pickle
 
 
 #make ll per character - done
-#TODO: make posterior predictive - IDK what the correct eval criterion should be here.
-#MODELING: make model with RNN syntax filter
+
+#TODO:
+#make posterior predictive
+
+#train & use dcModel
+#which requires converting programs to EC domain
+
+#THREE baselines:
+#vanilla RNN
+#vanilla dcModel
+#neural-sketch w/out dcModel
+
 
 def evaluate(model, dataset, nRepeats, mdl, d, pretrained=False):
 	t = time.time()

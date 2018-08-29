@@ -129,7 +129,7 @@ def get_language(V):
 
     return LINQ, lambdas
 
-def compile(source_code, V, L, min_input_range_length=0):
+def compile(source_code, V, L, min_input_range_length=0, verbose=False):
     """ Taken in a program source code, the integer range V and the tape lengths L,
         and produces a Program.
         If L is None then input constraints are not computed.
@@ -182,7 +182,7 @@ def compile(source_code, V, L, min_input_range_length=0):
                                               min(limits[p][1], new_lims[a][1]))
                     #print('t=%d: New limit for %d is %s' % (t, p, limits[pointers[t][a]]))
             elif min_input_range_length >= limits[t][1] - limits[t][0]:
-                print(('Program with no valid inputs: %s' % source_code))
+                if verbose: print(('Program with no valid inputs: %s' % source_code))
                 return None
 
     # for t in xrange(input_length, program_length):
