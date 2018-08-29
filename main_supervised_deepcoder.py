@@ -70,11 +70,10 @@ if __name__ == "__main__":
 
     Vrange = 128
 
-    train_data1 = 'data/DeepCoder_data/T2_A2_V512_L10_train.txt'
-    loader1 = batchloader(train_data1, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
-    train_data2 = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
-    loader2 = batchloader(train_data2, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
-    loader = chain(loader1, loader2)
+    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train.txt']#, 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
+
+    def loader():
+        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
 
     vocab = deepcoder_vocab(grammar)
 
@@ -113,7 +112,7 @@ if __name__ == "__main__":
         for j in range(model.pretrain_epochs, 50): #TODO
             print(f"\tepoch {j}:")
 
-            for i, batch in enumerate(loader):
+            for i, batch in enumerate(loader()):
 
                 IOs = tokenize_for_robustfill(batch.IOs)
 

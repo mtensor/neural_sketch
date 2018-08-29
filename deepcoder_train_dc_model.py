@@ -32,7 +32,7 @@ from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel
 
 #   from deepcoderModel import 
 max_length = 30
-batchsize = 100
+batchsize = 1
 Vrange = 128
 
 
@@ -48,19 +48,16 @@ if __name__ == "__main__":
     parser.add_argument('-k', type=int, default=3) #TODO
     args = parser.parse_args()
 
+    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt']#, 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
 
-  
-    train_data1 = 'data/DeepCoder_data/T2_A2_V512_L10_train.txt'
-    loader1 = batchloader(train_data1, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False)
-    train_data2 = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
-    loader2 = batchloader(train_data2, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False)
-    loader = chain(loader1, loader2)
+    def loader():
+        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
 
     vocab = deepcoder_vocab(grammar)
 
     print("Loading model", flush=True)
     try:
-        model=torch.load('./dc_model.p')
+        dcModel=torch.load('./dc_model.p')
         print('found saved dcModel, loading ...')
     except FileNotFoundError:
         print("no saved dcModel, creating new one")
@@ -82,7 +79,7 @@ if __name__ == "__main__":
     for j in range(dcModel.epochs, 50): #TODO
         print(f"\tepoch {j}:")
 
-        for i, datum in enumerate(loader): #TODO
+        for i, datum in enumerate(loader()): #TODO
 
             t = time.time()
             t3 = t-t2
@@ -91,8 +88,8 @@ if __name__ == "__main__":
 
             dcModel.scores.append(score)
             dcModel.iteration += 1
-            if i%500==0:
-                print("pretrain iteration", i, "score:", score, flush=True)
+            if i%500==0 and not i==0:
+                print("pretrain iteration", i, "average score:", sum(dcModel.scores[-500:])/500, flush=True)
                 print(f"network time: {t2-t}, other time: {t3}")
             if i%50000==0: 
                 #do some inference

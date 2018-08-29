@@ -1,27 +1,19 @@
 #generate deepcoder data
-
 import pickle
-
 from deepcoder_util import parseprogram, make_holey_deepcoder
 import time
-
 from collections import namedtuple
 #Function = namedtuple('Function', ['src', 'sig', 'fun', 'bounds'])
-
 import sys
 sys.path.append("/om/user/mnye/ec")
-
 from grammar import Grammar, NoCandidates
 from deepcoderPrimitives import deepcoderProductions, flatten_program
-
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
-
 import math
+import random
 from type import Context, arrow, tint, tlist, UnificationFailure
-
 from dc_program import generate_IO_examples, compile
-
-from itertools import zip_longest
+from itertools import zip_longest, chain
 
 #from dc_program import Program as dc_Program
 
@@ -137,14 +129,15 @@ def grouper(iterable, n, fillvalue=None):
 	args = [iter(iterable)] * n
 	return zip_longest(*args, fillvalue=fillvalue)
 
-def batchloader(train_data, batchsize=100, N=5, V=512, L=10, compute_sketches=False):
-
-	lines = (line.rstrip('\n') for i, line in enumerate(open(train_data)) if i != 0) #remove first line
+def single_batchloader(data_file, batchsize=100, N=5, V=512, L=10, compute_sketches=False, shuffle=True):
+	lines = (line.rstrip('\n') for i, line in enumerate(open(data_file)) if i != 0) #remove first line
+	if shuffle:
+		lines = list(lines)
+		random.shuffle(lines)
 
 	if batchsize==1:
 		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in lines)
 		yield from (x for x in data if x is not None)
-
 	else:
 		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches) for line in lines)
 		data = (x for x in data if x is not None)
@@ -154,7 +147,8 @@ def batchloader(train_data, batchsize=100, N=5, V=512, L=10, compute_sketches=Fa
 			tps, ps, pseqs, IOs, sketchs, sketchseqs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq) for datum in group if datum is not None])
 			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs)
 
-
+def batchloader(data_file_list, batchsize=100, N=5, V=512, L=10, compute_sketches=False, shuffle=True):
+	yield from chain(*[single_batchloader(data_file, batchsize=batchsize, N=N, V=V, L=L, compute_sketches=compute_sketches, shuffle=shuffle) for data_file in data_file_list])
 
 
 if __name__=='__main__':

@@ -71,7 +71,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl):
 			yield DeepcoderResult(sample, None, False)
 			continue
 		g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)
-		for l, _, p in g.sketchEnumeration(Context.EMPTY,[], datum.tp, sk, mdl):
+		for l, _, p in g.sketchEnumeration(Context.EMPTY, [], datum.tp, sk, mdl):
 			e = p.evaluate_dataset([])
 			hit = test_program_on_IO(e, datum.IO)
 			prog = e if hit else None
