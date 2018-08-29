@@ -48,10 +48,10 @@ if __name__ == "__main__":
     parser.add_argument('-k', type=int, default=3) #TODO
     args = parser.parse_args()
 
-    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt']#, 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
+    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
 
     def loader():
-        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
+        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False, shuffle=True)
 
     vocab = deepcoder_vocab(grammar)
 

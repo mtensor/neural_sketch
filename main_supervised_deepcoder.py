@@ -63,6 +63,7 @@ if __name__ == "__main__":
     parser.add_argument('--start_with_holes', action='store_true')
     #parser.add_argument('--variance_reduction', action='store_true')
     parser.add_argument('-k', type=int, default=3) #TODO
+    parser.add_argument('--new', action='store_true')
     args = parser.parse_args()
 
     max_length = 30
@@ -70,16 +71,17 @@ if __name__ == "__main__":
 
     Vrange = 128
 
-    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train.txt']#, 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
+    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
 
-    def loader():
+    def pretrain_loader():
         return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False)
 
     vocab = deepcoder_vocab(grammar)
 
     print("Loading model", flush=True)
     try:
-        if args.start_with_holes:
+        if args.new: raise FileNotFoundError
+        elif args.start_with_holes:
             model=torch.load("./deepcoder_pretrain_holes.p")
             print('found saved model, loading pretrained model with holes')
         else:
@@ -90,7 +92,7 @@ if __name__ == "__main__":
         model = SyntaxCheckingRobustFill(
             input_vocabularies=[list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"],
             list(range(-Vrange, Vrange+1))+["LIST_START", "LIST_END"]], 
-            target_vocabulary=vocab, max_length=max_length) #TODO
+            target_vocabulary=vocab, max_length=max_length, hidden_size=256) #TODO
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -109,10 +111,10 @@ if __name__ == "__main__":
             model.pretrain_epochs = 0
 
 
-        for j in range(model.pretrain_epochs, 50): #TODO
-            print(f"\tepoch {j}:")
+        for j in range(model.pretrain_epochs, 2): #TODO
+            print(f"\tpretrain epoch {j}:")
 
-            for i, batch in enumerate(loader()):
+            for i, batch in enumerate(pretrain_loader()):
 
                 IOs = tokenize_for_robustfill(batch.IOs)
 
@@ -123,6 +125,7 @@ if __name__ == "__main__":
 
                 model.pretrain_scores.append(score)
                 model.pretrain_iteration += 1
+                model.pretrain_epochs += 1
                 if i%1==0: print("pretrain iteration", i, "score:", score, "syntax score:", syntax_score, flush=True)
                 if i%200==0: 
                     if not args.nosave:
@@ -135,6 +138,9 @@ if __name__ == "__main__":
 
 
     ####### train with holes ########
+
+    def train_loader():
+        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=True)
 
     #make this a function (or class, whatever)
     print("training with holes")
@@ -149,8 +155,8 @@ if __name__ == "__main__":
         model.epochs = 0
 
     t2 = time.time()
-    for j in range(model.epochs, 20): #TODO
-        for i, batch in enumerate(batchloader(train_data, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=True)):
+    for j in range(model.epochs, 3): #TODO
+        for i, batch in enumerate(train_loader()):
             IOs = tokenize_for_robustfill(batch.IOs)
             t = time.time()
             objective, syntax_score = model.optimiser_step(IOs, batch.sketchseqs)
@@ -159,6 +165,7 @@ if __name__ == "__main__":
             #TODO: also can try RL objective, but unclear why that would be better.
             model.iteration += 1
             model.hole_scores.append(objective)
+            model.epochs += 1
             if i%1==0: 
                 print("iteration", i, "score:", objective, "syntax_score:", syntax_score, flush=True)
             if i%200==0: 
