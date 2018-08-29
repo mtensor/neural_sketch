@@ -92,7 +92,7 @@ if __name__ == "__main__":
         model = SyntaxCheckingRobustFill(
             input_vocabularies=[list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"],
             list(range(-Vrange, Vrange+1))+["LIST_START", "LIST_END"]], 
-            target_vocabulary=vocab, max_length=max_length, hidden_size=256) #TODO
+            target_vocabulary=vocab, max_length=max_length, hidden_size=512) #TODO
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
