@@ -1,6 +1,6 @@
 #generate deepcoder data
 import pickle
-from deepcoder_util import parseprogram, make_holey_deepcoder
+from deepcoder_util import parseprogram, make_holey_deepcoder, grammar
 import time
 from collections import namedtuple
 #Function = namedtuple('Function', ['src', 'sig', 'fun', 'bounds'])
