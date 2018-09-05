@@ -1,41 +1,27 @@
-#evaluate.py
-
-
-#import statements
+# evaluate.py
+# import statements
 import argparse
 from collections import namedtuple
 import torch
 from torch import nn, optim
-
 from pinn import RobustFill
-#import pregex as pre
-#from pregex import ParseException
-#from vhe import VHE, DataLoader, Factors, Result, RegexPrior
 import random
 import math
-
-#from sketch_project_rl_regex import Hole
-
 import time
 import dill
-
-from main_supervised_deepcoder import tokenize_for_robustfill
-
+import pickle
 from deepcoder_util import grammar as basegrammar
-from deepcoder_util import parseprogram, 
+from deepcoder_util import parseprogram, tokenize_for_robustfill
+from makeDeepcoderData import batchloader
 
+# TODO
 import sys
 sys.path.append("/om/user/mnye/ec")
-
 from program import ParseFailure, Context
 from grammar import NoCandidates
 
-from itertools import islice
-
-#make ll per character - done
-#TODO: make posterior predictive - IDK what the correct eval criterion should be here.
-#MODELING: make model with RNN syntax filter - done
-
+from itertools import islice, zip_longest
+from functools import reduce
 
 """ rough schematic of what needs to be done:
 1) Evaluate NN on test inputs
@@ -44,43 +30,72 @@ from itertools import islice
 4) use hole enumerator from kevin to turn sketch -> program (g.sketchEnumeration)
 5) when hit something, record and move on.
 
-
 so I need to build parseprogram, beam search and that may be it.
 """
+parser = argparse.ArgumentParser()
+parser.add_argument('--pretrained', action='store_true')
+parser.add_argument('--n_test', type=int, default=500)
+parser.add_argument('--dcModel', action='store_true')
+parser.add_argument('--dc_baseline', action='store_true')
+parser.add_argument('--n_samples', type=int, default=30)
+parser.add_argument('--mdl', type=int, default=11)  #9
+parser.add_argument('--n_examples', type=int, default=5)
+parser.add_argument('--Vrange', type=int, default=128)
+args = parser.parse_args()
 
-DeepcoderResult = namedtuple("DeepcoderResult", ["sketch", "prog", "hit"])
+nSamples = args.n_samples
+mdl = args.mdl
+nExamples = args.n_examples
+Vrange = args.Vrange
+
+DeepcoderResult = namedtuple("DeepcoderResult", ["sketch", "prog", "hit", "n_checked", "time"])
+
+def alternate(*args):
+	# note: python 2 - use izip_longest
+	for iterable in zip_longest(*args):
+		for item in iterable:
+			if item is not None:
+				yield item
 
 def test_program_on_IO(e, IO):
-	assert False
-	return all(e(x)==y for x, y in IO) # TODO
+	return all(reduce(lambda a, b: a(b), xs, e)==y for xs, y in IO)
 
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl):
 	t = time.time()
-	samples = [["<HOLE>"]]  # make more general
+	samples = {("<HOLE>",)}  # make more general
 	n_checked, n_hit = 0, 0
+	g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)
 	if model:
 		# can replace with a beam search at some point
 		# TODO: use score for allocating resources
 		tokenized = tokenize_for_robustfill([datum.IO])
-		samples, _score, _ = model.sampleAndScore(tokenized, nRepeats=nRepeats)
+		samples, _scores, _ = model.sampleAndScore(tokenized, nRepeats=nRepeats)
+		# only loop over unique samples:
+		samples = {tuple(sample) for sample in samples}
+	sketches = []
 	for sample in samples:
 		try:
 			sk = parseprogram(sample, datum.tp)
+			sketches.append(sk)
 		except (ParseFailure, NoCandidates) as e:
 			n_checked += 1
-			yield DeepcoderResult(sample, None, False)
+			yield DeepcoderResult(sample, None, False, n_checked, time.time()-t)
 			continue
-		g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)
-		for l, _, p in g.sketchEnumeration(Context.EMPTY, [], datum.tp, sk, mdl):
-			e = p.evaluate_dataset([])
-			hit = test_program_on_IO(e, datum.IO)
-			prog = e if hit else None
-			n_checked += 1
-			n_hit += 1 if hit else 0
-			yield DeepcoderResult(sample, prog, hit)
+	# only loop over unique sketches:
+	sketches = {sk for sk in sketches}
+	print(len(sketches))
+	print(sketches)
+	#alternate which sketch to enumerate from each time
+	for sk, x in alternate(*(((sk, x) for x in g.sketchEnumeration(Context.EMPTY, [], datum.tp, sk, mdl)) for sk in sketches)):
+		_, _, p = x
+		e = p.evaluate([])
+		hit = test_program_on_IO(e, datum.IO)
+		prog = e if hit else None
+		n_checked += 1
+		n_hit += 1 if hit else 0
+		yield DeepcoderResult(sk, prog, hit, n_checked, time.time()-t)
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
-	print(IO)
 	print(f"evaluation for task {i} took {time.time()-t} seconds")
 	print(f"For task {i}, tried {n_checked} sketches, found {n_hit} hits")
 
@@ -90,68 +105,73 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, dcModel=None):
 		print("evaluating dcModel baseline")
 	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl)) for i, datum in enumerate(dataset)}
 
-
-#TODO:
-def save_results(results, pretrained=False):
+#TODO: refactor for strings
+def save_results(results, args):
 	timestr = str(int(time.time()))
-	if pretrained:
-		filename = "results_pretrain_" + timestr + '.p'
+	r = '_test' + str(args.n_test) + '_'
+	if args.dc_baseline:
+		filename = "results/prelim_results_dc_baseline_" + r + timestr + '.p'
+	elif args.pretrained:
+		filename = "results/prelim_results_rnn_baseline_" + r + timestr + '.p'
 	else:
-		filename = "results_" + timestr + '.p'
+		dc = 'wdcModel_' if args.dcModel else ''
+		filename = "results/prelim_results_" + dc + r + timestr + '.p'
 	with open(filename, 'wb') as savefile:
 		dill.dump(results, savefile)
 		print("results file saved")
+	return savefile
 
-#fuctions:
-	#evaluate
-	#save
+def percent_solved_n_checked(results, n_checked):
+	return sum(any(result.hit and result.n_checked <= n_checked for result in result_list) for result_list in results.values())/len(results)
+
+def percent_solved_time(results, time):
+	return sum(any(result.hit and result.time <= time for result in result_list) for result_list in results.values())/len(results)
 
 if __name__=='__main__':
-	parser = argparse.ArgumentParser()
-	parser.add_argument('--pretrained', action='store_true')
-	parser.add_argument('--n_test', type=int, default=20)
-	args = parser.parse_args()
-
-	nSamples = 20
-	mdl = 9 #9 gives 408, 10 gives 1300, 13 gives 24000
-	nExamples = 5
-
-	Vrange = 128
-
-	dataset_file = 'data/pretrain_data_v1.p'
-
 	#load the model
 	if args.pretrained:
 		print("loading pretrained_model")
-		model = torch.load("./deepcoder_model_pretrained.p")
+		model = torch.load("./deepcoder_pretrained.p")
 	elif args.dc_baseline:
 		print("computing dc baseline, no model")
 		assert args.dcModel
+		model = None
 	else:
 		print("loading model with holes")
 		model = torch.load("./deepcoder_holes.p") #TODO
-
-
 	if args.dcModel:
 		print("loading dc_model")
 		dcModel = torch.load("./dc_model.p")
 
-
 	###load the test dataset###
-    test_data = 'data/DeepCoder_test_data/T3_A2_V512_L10_P500.txt'
-    lines = (line.rstrip('\n') for i, line in enumerate(open(train_data)) if i != 0) #remove first line
-    dataset = batchloader(lines, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False):
-    
-    #optional:
-    dataset = list(dataset)
-    dataset = random.shuffle(dataset)
-    del dataset[args.n_test:]
+	# test_data = ['data/DeepCoder_test_data/T3_A2_V512_L10_P500.txt']
+	# test_data = ['data/DeepCoder_test_data/T5_A2_V512_L10_P100_test.txt'] #modified from original
+	# dataset = batchloader(test_data, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False)
+	# dataset = list(dataset)
+
+	# with open('prelim_test_data_T5.p', 'wb') as savefile:
+	# 	pickle.dump(dataset, savefile)
+	# 	print("test file saved")
+
+	with open('prelim_test_data_T5.p', 'rb') as datafile:
+		dataset = pickle.load(datafile)
+	# optional:
+	#dataset = random.shuffle(dataset)
+	del dataset[args.n_test:]
 
 	results = evaluate_dataset(model, dataset, nSamples, mdl, dcModel=dcModel)
 
+	# count hits
+	hits = sum(any(result.hit for result in result_list) for result_list in results.values())
+	print(f"hits: {hits} out of {args.n_test}, or {100*hits/args.n_test}% accuracy")
+
+	# I want a plot of the form: %solved vs n_hits
+	x_axis = [10, 20, 50, 100, 200, 400, 600]  # TODO
+	y_axis = [percent_solved_n_checked(results, x) for x in x_axis]
+
+	print("percent solved vs number of evaluated programs")
+	print("num_checked:", x_axis)
+	print("num_solved:", y_axis)
+
 	#doesn't really need a full function ... 
-	save_results(results, pretrained=args.pretrained)
-
-
-	####cool graphic#####
-
+	file = save_results(results, args)

@@ -30,8 +30,31 @@ from program import Application, Hole, Primitive, Index, Abstraction, ParseFailu
 import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 
-productions = deepcoderProductions() #TODO - figure out good production probs ... 
-grammar = Grammar.fromProductions(productions, logVariable=-5) #TODO
+productions = deepcoderProductions()  # TODO - figure out good production probs ... 
+grammar = Grammar.fromProductions(productions, logVariable=0.0)  # TODO
+
+def tokenize_for_robustfill(IOs):
+    """
+    tokenizes a batch of IOs
+    """
+    newIOs = []
+    for examples in IOs:
+        tokenized = []
+        for xs, y in examples:
+            if isinstance(y, list):
+                y = ["LIST_START"] + y + ["LIST_END"]
+            else:
+                y = [y]
+            serializedInputs = []
+            for x in xs:
+                if isinstance(x, list):
+                    x = ["LIST_START"] + x + ["LIST_END"]
+                else:
+                    x = [x]
+                serializedInputs.extend(x)
+            tokenized.append((serializedInputs, y))
+        newIOs.append(tokenized)
+    return newIOs
 
 def buildCandidate(request, context, environment, parsecontext, index_dict={}):
     """Primitives that are candidates for being used given a requested type
@@ -59,11 +82,13 @@ def buildCandidate(request, context, environment, parsecontext, index_dict={}):
             candidate = (t, p, newContext)
 
         except UnificationFailure:
-            ParseFailure()
+            raise ParseFailure()
     
     elif chosen_str in variable_list:
-
-        j = index_dict[chosen_str]
+        try:
+            j = index_dict[chosen_str]
+        except KeyError: 
+            raise ParseFailure()
         t = environment[j]
     #for j, t in enumerate(environment):
         try:
@@ -71,7 +96,7 @@ def buildCandidate(request, context, environment, parsecontext, index_dict={}):
             t = t.apply(newContext)
             candidate = (t, Index(j), newContext)
         except UnificationFailure:
-            ParseFailure()
+            raise ParseFailure()
     else: #if it is a hole:
         assert chosen_str == '<HOLE>' #TODO, choose correct representation of program
         p = Hole()
@@ -85,7 +110,7 @@ def buildCandidate(request, context, environment, parsecontext, index_dict={}):
             candidate = (t, p, newContext)
 
         except UnificationFailure:
-            ParseFailure()
+            raise ParseFailure()
 
     if candidate == None:
         raise NoCandidates()
@@ -110,11 +135,8 @@ def parseprogram(pseq, request): #TODO
 
         parsecontext, candidate = buildCandidate(request, context, environment, parsecontext, index_dict=index_dict)
 
-
         newType, chosenPrimitive, context = candidate
    
-
-
         # Sample the arguments
         xs = newType.functionArguments()
         returnValue = chosenPrimitive
@@ -127,47 +149,42 @@ def parseprogram(pseq, request): #TODO
 
         return parsecontext, context, returnValue
         
-
     _, _, e = _parse(
                     request, pseq, Context.EMPTY, [])
     return e
 
-def make_holey_deepcoder(prog, k, g, request): #(prog, args.k, grammar, request)
-    #print(k)
+def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0):
+    """
+    inv_temp==1 => use true mdls
+    inv_temp==0 => sample uniformly
+    0 < inv_temp < 1 ==> something in between
+    """ 
     choices = g.enumerateHoles(request, prog, k=k)
-
     if len(list(choices)) == 0:
         #if there are none, then use the original program 
         choices = [(prog, 1)]
-
     #print("prog:", prog, "choices", list(choices))
     progs, weights = zip(*choices)
-    weights = [math.exp(w) for w in weights]
+    weights = [math.exp(inv_temp*w) for w in weights]
 
     if k > 1:
         x = random.choices(progs, weights=weights, k=1)
-        #print("x", x)
         return x[0]
     else:
         return progs[0] #i think it will output a list? #TODO
 
 
 
-####unused####
 
+####unused####
 def sample_request(): #TODO
     requests = [
-    arrow(tlist(tint), tlist(tint)),
-    arrow(tlist(tint), tint),
-    #arrow(tint, tlist(tint)),
-    arrow(tint, tint)
-    ]
-
+            arrow(tlist(tint), tlist(tint)),
+            arrow(tlist(tint), tint),
+            #arrow(tint, tlist(tint)),
+            arrow(tint, tint)
+            ]
     return random.choices(requests, weights=[4,3,1])[0] #TODO
-
-
-
-
 
 def isListFunction(tp):
     try:

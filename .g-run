@@ -4,7 +4,10 @@ ln -s ../../envs
 #models:
 ln -s ../../sketch_model_pretrained.p
 ln -s ../../sketch_model_pretrain_holes.p
+ln -s ../../sketch_model_holes.p
 
+ln -s ../../deepcoder_pretrained.p
+ln -s ../../dc_model.p
 #data:
 ln -s ../../dates.p
 ln -s ../../regex_data_csv_900.p
