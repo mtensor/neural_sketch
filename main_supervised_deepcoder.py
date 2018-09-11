@@ -33,7 +33,7 @@ parser.add_argument('--debug', action='store_true')
 parser.add_argument('--nosave', action='store_true')
 #parser.add_argument('--start_with_holes', action='store_true')
 parser.add_argument('--variance_reduction', action='store_true')
-parser.add_argument('-k', type=int, default=3) #TODO
+parser.add_argument('-k', type=int, default=50) #TODO
 parser.add_argument('--new', action='store_true')
 parser.add_argument('--rnn_max_length', type=int, default=30)
 parser.add_argument('--batchsize', type=int, default=200)
@@ -115,9 +115,10 @@ if __name__ == "__main__":
             IOs = tokenize_for_robustfill(batch.IOs)
             t = time.time()
             if not pretraining and args.use_rl:
+                print("don't do RL")
+                assert False
                 if not hasattr(model, 'opt'): model._get_optimiser()
                 model.opt.zero_grad()
-
                 if args.imp_weight_trunc:
                     print("not finished implementing")
                     assert False
@@ -131,17 +132,15 @@ if __name__ == "__main__":
                     p_over_q = something#a pain in the but 
                     term_2 = torch.clamp() * (batch.reward.cuda() -  model.variance_red.data) * qscore 
                     objective = term_1 + term_2 + syntax_score - torch.pow((batch.reward.cuda() - model.variance_red),2)
-
                 else: 
                     score, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
                     #(-score - syntax_score).backward()
                     if args.variance_reduction:
-                        objective = 10**6 * torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  model.variance_red.data) * score - torch.pow((batch.rewards.cuda() - model.variance_red),2)
+                        objective = torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  model.variance_red.data) * (score + syntax_score) - torch.pow((batch.rewards.cuda() - model.variance_red),2)
                     else:
-                        objective = 10**6 * torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda() * score
-                    if not args.rl_no_syntax:
-                        objective = objective + syntax_score
-
+                        objective = torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda() * score
+                    #if not args.rl_no_syntax:
+                    #    objective = objective + syntax_score
                 objective = objective.mean()
                 (-objective).backward()
                 model.opt.step()

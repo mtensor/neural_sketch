@@ -174,7 +174,7 @@ if __name__=='__main__':
 	print(f"hits: {hits} out of {args.n_test}, or {100*hits/args.n_test}% accuracy")
 
 	# I want a plot of the form: %solved vs n_hits
-	x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 400, 600]  # TODO
+	x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 400, 600, 800, 900, 1000, 2000, 4000]  # TODO
 	y_axis = [percent_solved_n_checked(results, x) for x in x_axis]
 
 	print("percent solved vs number of evaluated programs")
