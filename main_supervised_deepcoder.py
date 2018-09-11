@@ -136,9 +136,9 @@ if __name__ == "__main__":
                     score, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
                     #(-score - syntax_score).backward()
                     if args.variance_reduction:
-                        objective = torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  model.variance_red.data) * score - torch.pow((batch.rewards.cuda() - model.variance_red),2)
+                        objective = 10**6 * torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  model.variance_red.data) * score - torch.pow((batch.rewards.cuda() - model.variance_red),2)
                     else:
-                        objective = torch.exp(score)/batch.sketchprobs.cuda() * (batch.reward.cuda())
+                        objective = 10**6 * torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda() * score
                     if not args.rl_no_syntax:
                         objective = objective + syntax_score
 
