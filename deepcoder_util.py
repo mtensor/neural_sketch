@@ -98,7 +98,10 @@ def buildCandidate(request, context, environment, parsecontext, index_dict={}):
         except UnificationFailure:
             raise ParseFailure()
     else: #if it is a hole:
-        assert chosen_str == '<HOLE>' #TODO, choose correct representation of program
+        try: assert chosen_str == '<HOLE>' #TODO, choose correct representation of program
+        except AssertionError as e:
+            print("bad string:", chosen_str)
+            assert False
         p = Hole()
         t = request #[try all possibilities and backtrack] #p.inferType(context, environment, freeVariables) #TODO
         # or hole is request.
@@ -162,16 +165,21 @@ def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0):
     choices = g.enumerateHoles(request, prog, k=k)
     if len(list(choices)) == 0:
         #if there are none, then use the original program 
-        choices = [(prog, 1)]
+        choices = [(prog, 0)]
     #print("prog:", prog, "choices", list(choices))
     progs, weights = zip(*choices)
+    #normalize weights, and then rezip
+    rewards = [math.exp(w) for w in weights]
     weights = [math.exp(inv_temp*w) for w in weights]
+    w_sum = sum(w for w in weights)
+    weights = [w/w_sum for w in weights]
+    prog_reward_probs = list(zip(progs, rewards, weights))
 
     if k > 1:
-        x = random.choices(progs, weights=weights, k=1)
-        return x[0]
+        x = random.choices(prog_reward_probs, weights=weights, k=1)
+        return x[0] #outputs prog, prob
     else:
-        return progs[0] #i think it will output a list? #TODO
+        return prog_reward_probs[0] #outputs prog, prob
 
 
 

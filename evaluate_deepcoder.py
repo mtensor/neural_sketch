@@ -41,12 +41,16 @@ parser.add_argument('--n_samples', type=int, default=30)
 parser.add_argument('--mdl', type=int, default=11)  #9
 parser.add_argument('--n_examples', type=int, default=5)
 parser.add_argument('--Vrange', type=int, default=128)
+parser.add_argument('--precomputed_data_file', type=str, default='data/prelim_val_data.p')
+parser.add_argument('--model_path', type=str, default="./deepcoder_holes.p")
+parser.add_argument('--max_to_check', type=int, default=10000)
 args = parser.parse_args()
 
 nSamples = args.n_samples
 mdl = args.mdl
 nExamples = args.n_examples
 Vrange = args.Vrange
+max_to_check = args.max_to_check
 
 DeepcoderResult = namedtuple("DeepcoderResult", ["sketch", "prog", "hit", "n_checked", "time"])
 
@@ -60,7 +64,7 @@ def alternate(*args):
 def test_program_on_IO(e, IO):
 	return all(reduce(lambda a, b: a(b), xs, e)==y for xs, y in IO)
 
-def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl):
+def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	t = time.time()
 	samples = {("<HOLE>",)}  # make more general
 	n_checked, n_hit = 0, 0
@@ -94,16 +98,18 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl):
 		n_checked += 1
 		n_hit += 1 if hit else 0
 		yield DeepcoderResult(sk, prog, hit, n_checked, time.time()-t)
+		if hit: break
+		if n_checked >= max_to_check: break
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
 	print(f"evaluation for task {i} took {time.time()-t} seconds")
-	print(f"For task {i}, tried {n_checked} sketches, found {n_hit} hits")
+	print(f"For task {i}, tried {n_checked} sketches, found {n_hit} hits", flush=True)
 
-def evaluate_dataset(model, dataset, nRepeats, mdl, dcModel=None):
+def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	t = time.time()
 	if model is None:
 		print("evaluating dcModel baseline")
-	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl)) for i, datum in enumerate(dataset)}
+	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check)) for i, datum in enumerate(dataset)}
 
 #TODO: refactor for strings
 def save_results(results, args):
@@ -118,7 +124,7 @@ def save_results(results, args):
 		filename = "results/prelim_results_" + dc + r + timestr + '.p'
 	with open(filename, 'wb') as savefile:
 		dill.dump(results, savefile)
-		print("results file saved")
+		print("results file saved at", filename)
 	return savefile
 
 def percent_solved_n_checked(results, n_checked):
@@ -138,7 +144,7 @@ if __name__=='__main__':
 		model = None
 	else:
 		print("loading model with holes")
-		model = torch.load("./deepcoder_holes.p") #TODO
+		model = torch.load(args.model_path) #TODO
 	if args.dcModel:
 		print("loading dc_model")
 		dcModel = torch.load("./dc_model.p")
@@ -146,27 +152,29 @@ if __name__=='__main__':
 	###load the test dataset###
 	# test_data = ['data/DeepCoder_test_data/T3_A2_V512_L10_P500.txt']
 	# test_data = ['data/DeepCoder_test_data/T5_A2_V512_L10_P100_test.txt'] #modified from original
+	# test_data = ['data/DeepCoder_data/T3_A2_V512_L10_validation_perm.txt']
 	# dataset = batchloader(test_data, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False)
 	# dataset = list(dataset)
 
-	# with open('prelim_test_data_T5.p', 'wb') as savefile:
+	# with open('data/prelim_val_data.p', 'wb') as savefile:
 	# 	pickle.dump(dataset, savefile)
 	# 	print("test file saved")
 
-	with open('prelim_test_data_T5.p', 'rb') as datafile:
+	print("data file:", args.precomputed_data_file)
+	with open(args.precomputed_data_file, 'rb') as datafile:
 		dataset = pickle.load(datafile)
 	# optional:
 	#dataset = random.shuffle(dataset)
 	del dataset[args.n_test:]
 
-	results = evaluate_dataset(model, dataset, nSamples, mdl, dcModel=dcModel)
+	results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel)
 
 	# count hits
 	hits = sum(any(result.hit for result in result_list) for result_list in results.values())
 	print(f"hits: {hits} out of {args.n_test}, or {100*hits/args.n_test}% accuracy")
 
 	# I want a plot of the form: %solved vs n_hits
-	x_axis = [10, 20, 50, 100, 200, 400, 600]  # TODO
+	x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 250, 400, 600]  # TODO
 	y_axis = [percent_solved_n_checked(results, x) for x in x_axis]
 
 	print("percent solved vs number of evaluated programs")

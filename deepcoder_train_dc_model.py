@@ -31,10 +31,13 @@ from itertools import chain
 from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel
 
 #   from deepcoderModel import 
+
+
 max_length = 30
 batchsize = 1
 Vrange = 128
-
+max_epochs = args.max_epochs
+max_list_length = args.max_list_length
 
 def deepcoder_vocab(grammar, n_inputs=3): 
     return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>'] #TODO
@@ -51,7 +54,7 @@ if __name__ == "__main__":
     train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
 
     def loader():
-        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=10, compute_sketches=False, shuffle=True)
+        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=max_list_length, compute_sketches=False, shuffle=True)
 
     vocab = deepcoder_vocab(grammar)
 
@@ -76,7 +79,7 @@ if __name__ == "__main__":
     if not hasattr(dcModel, 'epochs'):
         dcModel.epochs = 0
 
-    for j in range(dcModel.epochs, 50): #TODO
+    for j in range(dcModel.epochs, max_epochs): #TODO
         print(f"\tepoch {j}:")
 
         for i, datum in enumerate(loader()): #TODO

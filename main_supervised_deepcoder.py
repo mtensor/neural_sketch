@@ -32,7 +32,7 @@ parser.add_argument('--pretrain', action='store_true')
 parser.add_argument('--debug', action='store_true')
 parser.add_argument('--nosave', action='store_true')
 #parser.add_argument('--start_with_holes', action='store_true')
-#parser.add_argument('--variance_reduction', action='store_true')
+parser.add_argument('--variance_reduction', action='store_true')
 parser.add_argument('-k', type=int, default=3) #TODO
 parser.add_argument('--new', action='store_true')
 parser.add_argument('--rnn_max_length', type=int, default=30)
@@ -53,6 +53,9 @@ parser.add_argument('--save_freq', type=int, default=200)
 parser.add_argument('--print_freq', type=int, default=1)
 parser.add_argument('--top_k_sketches', type=int, default=100)
 parser.add_argument('--inv_temp', type=float, default=1.0)
+parser.add_argument('--use_rl', action='store_true')
+parser.add_argument('--imp_weight_trunc', action='store_true')
+parser.add_argument('--rl_no_syntax', action='store_true')
 args = parser.parse_args()
 
 batchsize = args.batchsize 
@@ -86,6 +89,10 @@ if __name__ == "__main__":
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
+    if args.variance_reduction:
+        if not hasattr(model, 'variance_red'):
+            model.variance_red = nn.Parameter(torch.Tensor([1])).cuda()
+            model._clear_optimiser()
 
     ####### train with holes ########
     pretraining = args.pretrain and model.pretrain_epochs < args.max_pretrain_epochs
@@ -107,7 +114,43 @@ if __name__ == "__main__":
                                                 inv_temp=args.inv_temp)):
             IOs = tokenize_for_robustfill(batch.IOs)
             t = time.time()
-            objective, syntax_score = model.optimiser_step(IOs, batch.pseqs if pretraining else batch.sketchseqs)
+            if not pretraining and args.use_rl:
+                if not hasattr(model, 'opt'): model._get_optimiser()
+                model.opt.zero_grad()
+
+                if args.imp_weight_trunc:
+                    print("not finished implementing")
+                    assert False
+                    batch.rewards, batch.sketchseqs
+                    torch.clamp(q/p, max=c)
+                    pscore, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
+                    torch.clamp(qscore/batch.sketchprobs, max=c)
+                    term_1 = torch.clamp(torch.exp(pscore.data)/batch.sketchprobs.cuda(), max=c) * (batch.reward.cuda() -  model.variance_red.data) * pscore
+                    target, qscore, _ = model.sampleAndScore(IOs, autograd=True)
+                    term_2_rewards = find_rewards(target, )
+                    p_over_q = something#a pain in the but 
+                    term_2 = torch.clamp() * (batch.reward.cuda() -  model.variance_red.data) * qscore 
+                    objective = term_1 + term_2 + syntax_score - torch.pow((batch.reward.cuda() - model.variance_red),2)
+
+                else: 
+                    score, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
+                    #(-score - syntax_score).backward()
+                    if args.variance_reduction:
+                        objective = torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  model.variance_red.data) * score - torch.pow((batch.rewards.cuda() - model.variance_red),2)
+                    else:
+                        objective = torch.exp(score)/batch.sketchprobs.cuda() * (batch.reward.cuda())
+                    if not args.rl_no_syntax:
+                        objective = objective + syntax_score
+
+                objective = objective.mean()
+                (-objective).backward()
+                model.opt.step()
+                #for the purpose of printing:
+                syntax_score = syntax_score.mean()
+                if not args.rl_no_syntax:
+                    objective = objective - syntax_score
+            else:
+                objective, syntax_score = model.optimiser_step(IOs, batch.pseqs if pretraining else batch.sketchseqs)
             print(f"network time: {time.time()-t}, other time: {t-t2}")
             t2 = time.time()
             if pretraining:

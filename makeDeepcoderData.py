@@ -17,6 +17,7 @@ from type import Context, arrow, tint, tlist, UnificationFailure
 from dc_program import generate_IO_examples, compile
 from itertools import zip_longest, chain
 from functools import reduce
+import torch
 
 #from dc_program import Program as dc_Program
 
@@ -45,18 +46,20 @@ def make_deepcoder_data(filename, with_holes=False, size=10000000, k=20):
 #Datum = namedtuple('Datum', ['tp', 'p', 'pseq', 'IO', 'sketch', 'sketchseq'])
 
 class Datum():
-	def __init__(self, tp, p, pseq, IO, sketch, sketchseq):
+	def __init__(self, tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob):
 		self.tp = tp
 		self.p = p
 		self.pseq = pseq
 		self.IO = IO
 		self.sketch = sketch
 		self.sketchseq = sketchseq
+		self.reward = reward
+		self.sketchprob = sketchprob
 
 	def __hash__(self): 
 		return reduce(lambda a, b: hash(a + hash(b)), flatten(self.IO), 0) + hash(self.p) + hash(self.sketch)
 
-Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs'])
+Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs', 'rewards', 'sketchprobs'])
 
 def convert_dc_program_to_ec(dc_program, tp):
 	source = dc_program.src
@@ -112,14 +115,14 @@ def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False, to
 
 	if compute_sketches:
 		# find sketch
-		sketch = make_holey_deepcoder(p, top_k_sketches, grammar, tp, inv_temp=inv_temp) #TODO
+		sketch, reward, sketchprob = make_holey_deepcoder(p, top_k_sketches, grammar, tp, inv_temp=inv_temp) #TODO
 
 		# find sketchseq
 		sketchseq = tuple(flatten_program(sketch))
 	else:
-		sketch, sketchseq = None, None
+		sketch, sketchseq, reward, sketchprob = None, None, None, None
 
-	return Datum(tp, p, pseq, IO, sketch, sketchseq)
+	return Datum(tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob)
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -143,8 +146,8 @@ def single_batchloader(data_file, batchsize=100, N=5, V=512, L=10, compute_sketc
 		grouped_data = grouper(data, batchsize)
 
 		for group in grouped_data:
-			tps, ps, pseqs, IOs, sketchs, sketchseqs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq) for datum in group if datum is not None])
-			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs)
+			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob) for datum in group if datum is not None])
+			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) , torch.FloatTensor(sketchprobs))  # check that his works 
 
 def batchloader(data_file_list, batchsize=100, N=5, V=512, L=10, compute_sketches=False, shuffle=True, top_k_sketches=20, inv_temp=1.0):
 	yield from chain(*[single_batchloader(data_file, batchsize=batchsize, N=N, V=V, L=L, compute_sketches=compute_sketches, shuffle=shuffle, top_k_sketches=top_k_sketches, inv_temp=inv_temp) for data_file in data_file_list])

@@ -28,6 +28,7 @@ import pickle
 parser = argparse.ArgumentParser()
 parser.add_argument('--pretrained', action='store_true')
 parser.add_argument('--pretrain_holes', action='store_true')
+parser.add_argument('--max_to_check', type=int, default=10000)
 args = parser.parse_args()
 
 RegexResult = namedtuple("RegexResult", ["sketch", "prog", "ll", "n_checked", "time"])
@@ -37,6 +38,7 @@ lookup_d = {Hole:Hole()}
 nSamples = 100
 mdl = 9 #9 gives 408, 10 gives 1300, 13 gives 24000
 nExamples = 5
+max_to_check = args.max_to_check
 
 # def evaluate(model, dataset, nRepeats, mdl, d, pretrained=False):
 # 	t = time.time()
@@ -112,7 +114,7 @@ def alternate(*args):
 def test_program_on_IO(e, IO):
 	return all(reduce(lambda a, b: a(b), xs, e)==y for xs, y in IO)
 
-def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl):
+def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	t = time.time()
 	samples = {("<HOLE>",)}  # make more general
 	n_checked, n_hit = 0, 0
@@ -145,16 +147,17 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl):
 			prog = full_program if ll > float('-inf') else None
 			n_checked += 1
 			yield RegexResult(sk, prog, ll, n_checked, time.time()-t)
+			if n_checked >= max_to_check: break
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
 	print(f"evaluation for task {i} took {time.time()-t} seconds")
 	print(f"For task {i}, tried {n_checked} sketches, found {n_hit} hits")
 
-def evaluate_dataset(model, dataset, nRepeats, mdl, dcModel=None):
+def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	t = time.time()
 	if model is None:
 		print("evaluating dcModel baseline")
-	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl)) for i, datum in enumerate(dataset)}
+	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check)) for i, datum in enumerate(dataset)}
 
 def save_results(results, pretrained=False):
 	timestr = str(int(time.time()))
@@ -192,7 +195,7 @@ if __name__=='__main__':
 
 	print("WARNING: using per-character ll evalution, which may not be good...")
 
-	results = evaluate_dataset(model, dataset, nSamples, mdl, dcModel=dcModel)  # TODO
+	results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel)  # TODO
 	#results = evaluate(model, dataset, nSamples, mdl, lookup_d, pretrained=args.pretrained)
 
 	#doesn't really need a full function ... 
