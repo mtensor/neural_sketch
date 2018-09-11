@@ -31,11 +31,21 @@ from itertools import chain
 from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel
 
 #   from deepcoderModel import 
-
+parser = argparse.ArgumentParser()
+parser.add_argument('--debug', action='store_true')
+parser.add_argument('--nosave', action='store_true')
+parser.add_argument('-k', type=int, default=3) #TODO
+parser.add_argument('--Vrange', type=int, default=128)
+parser.add_argument('--max_epochs', type=int, default=50)
+parser.add_argument('--max_list_length', type=int, default=10)
+parser.add_argument('--save_model_path', type=str, default='./dc_model.p')
+parser.add_argument('--load_model_path', type=str, default='./dc_model.p')
+parser.add_argument('--new', action='store_true')
+args = parser.parse_args()
 
 max_length = 30
 batchsize = 1
-Vrange = 128
+Vrange = args.Vrange
 max_epochs = args.max_epochs
 max_list_length = args.max_list_length
 
@@ -45,11 +55,6 @@ def deepcoder_vocab(grammar, n_inputs=3):
 deepcoder_io_vocab = list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"]
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--nosave', action='store_true')
-    parser.add_argument('-k', type=int, default=3) #TODO
-    args = parser.parse_args()
 
     train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
 
@@ -60,7 +65,9 @@ if __name__ == "__main__":
 
     print("Loading model", flush=True)
     try:
-        dcModel=torch.load('./dc_model.p')
+        if args.new:
+            raise FileNotFoundError
+        dcModel=torch.load(args.load_model_path)
         print('found saved dcModel, loading ...')
     except FileNotFoundError:
         print("no saved dcModel, creating new one")
@@ -99,11 +106,11 @@ if __name__ == "__main__":
                 #g = dcModel.infer_grammar(IO) #TODO
 
                 if not args.nosave:
-                    torch.save(dcModel, f'./dc_model_ep_{j}_iter_{i}.p')
+                    torch.save(dcModel, args.save_model_path+f'_{str(j)}_iter_{str(i)}.p')
         #to prevent overwriting model:
         if not args.nosave:
-            torch.save(dcModel, f'./dc_model_ep_{j}.p')
-            torch.save(dcModel, './dc_model.p')
+            torch.save(dcModel, args.save_model_path+'_{}.p'.format(str(j)))
+            torch.save(dcModel, args.save_model_path)
 
 
     ######## End training ########
