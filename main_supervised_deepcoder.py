@@ -103,11 +103,11 @@ if __name__ == "__main__":
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
+    if args.use_rl: model._get_optimiser(lr=args.rl_lr)
     if args.variance_reduction:
         #if not hasattr(model, 'variance_red'):
          #   print("creating variance_red param")
             #variance_red = nn.Parameter(torch.Tensor([0], requires_grad=True, device="cuda"))
-        model._get_optimiser(lr=args.rl_lr)
             #variance_red = torch.zeros(1, requires_grad=True, device="cuda") 
         variance_red = torch.Tensor([.14]).cuda().requires_grad_()
         model.opt.add_param_group({"params": variance_red})
