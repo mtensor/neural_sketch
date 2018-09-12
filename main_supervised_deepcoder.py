@@ -56,11 +56,21 @@ parser.add_argument('--inv_temp', type=float, default=1.0)
 parser.add_argument('--use_rl', action='store_true')
 parser.add_argument('--imp_weight_trunc', action='store_true')
 parser.add_argument('--rl_no_syntax', action='store_true')
+parser.add_argument('--use_dc_grammar', type=str, default='NA')
+parser.add_argument('--rl_lr', type=float, default=0.001)
 args = parser.parse_args()
 
 batchsize = args.batchsize 
 Vrange = args.Vrange
 train_datas = args.train_data
+
+if args.use_dc_grammar == 'NA':
+    use_dc_grammar = False
+    dc_grammar_path = None
+else:
+    use_dc_grammar = True
+    dc_model_path = args.use_dc_grammar
+
 
 def deepcoder_vocab(grammar, n_inputs=args.max_n_inputs): 
     return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>']  # TODO
@@ -86,13 +96,22 @@ if __name__ == "__main__":
         model.hole_scores = []
         model.epochs = 0
 
+    if use_dc_grammar:
+        print("loading dc model")
+        dc_model=torch.load(dc_model_path)
+
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     if args.variance_reduction:
-        if not hasattr(model, 'variance_red'):
-            model.variance_red = nn.Parameter(torch.Tensor([1])).cuda()
-            model._clear_optimiser()
+        #if not hasattr(model, 'variance_red'):
+         #   print("creating variance_red param")
+            #variance_red = nn.Parameter(torch.Tensor([0], requires_grad=True, device="cuda"))
+        model._get_optimiser(lr=args.rl_lr)
+            #variance_red = torch.zeros(1, requires_grad=True, device="cuda") 
+        variance_red = torch.Tensor([.14]).cuda().requires_grad_()
+        model.opt.add_param_group({"params": variance_red})
+            #model._clear_optimiser()
 
     ####### train with holes ########
     pretraining = args.pretrain and model.pretrain_epochs < args.max_pretrain_epochs
@@ -110,35 +129,46 @@ if __name__ == "__main__":
                                                 V=Vrange,
                                                 L=args.max_list_length, 
                                                 compute_sketches=not pretraining,
+                                                dc_model=dc_model if use_dc_grammar else None,
                                                 top_k_sketches=args.top_k_sketches,
                                                 inv_temp=args.inv_temp)):
             IOs = tokenize_for_robustfill(batch.IOs)
             t = time.time()
             if not pretraining and args.use_rl:
-                print("don't do RL")
-                assert False
-                if not hasattr(model, 'opt'): model._get_optimiser()
+                #if not hasattr(model, 'opt'):
+                #    model._get_optimiser(lr=args.rl_lr) #todo
+                #    model.opt.add_param_group({"params": variance_red})
                 model.opt.zero_grad()
                 if args.imp_weight_trunc:
                     print("not finished implementing")
                     assert False
-                    batch.rewards, batch.sketchseqs
-                    torch.clamp(q/p, max=c)
-                    pscore, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
-                    torch.clamp(qscore/batch.sketchprobs, max=c)
-                    term_1 = torch.clamp(torch.exp(pscore.data)/batch.sketchprobs.cuda(), max=c) * (batch.reward.cuda() -  model.variance_red.data) * pscore
-                    target, qscore, _ = model.sampleAndScore(IOs, autograd=True)
-                    term_2_rewards = find_rewards(target, )
-                    p_over_q = something#a pain in the but 
-                    term_2 = torch.clamp() * (batch.reward.cuda() -  model.variance_red.data) * qscore 
-                    objective = term_1 + term_2 + syntax_score - torch.pow((batch.reward.cuda() - model.variance_red),2)
+                #     batch.rewards, batch.sketchseqs
+                #     torch.clamp(q/p, max=c)
+                #     pscore, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
+                #     torch.clamp(qscore/batch.sketchprobs, max=c)
+                #     term_1 = torch.clamp(torch.exp(pscore.data)/batch.sketchprobs.cuda(), max=c) * (batch.reward.cuda() -  variance_red.data) * pscore
+                #     target, qscore, _ = model.sampleAndScore(IOs, autograd=True)
+                #     term_2_rewards = find_rewards(target, )
+                #     p_over_q = something#a pain in the but 
+                #     term_2 = torch.clamp() * (batch.reward.cuda() -  variance_red.data) * qscore 
+                #     objective = term_1 + term_2 + syntax_score - torch.pow((batch.reward.cuda() - variance_red),2)
                 else: 
                     score, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
-                    #(-score - syntax_score).backward()
+                    print("rewards:", batch.rewards.mean())
+                    print("sketchprobs:", batch.sketchprobs.mean())
                     if args.variance_reduction:
-                        objective = torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  model.variance_red.data) * (score + syntax_score) - torch.pow((batch.rewards.cuda() - model.variance_red),2)
+                        if not args.rl_no_syntax:
+                            objective = torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  variance_red.data) * (score + syntax_score) - torch.pow((batch.rewards.cuda() - variance_red),2)
+                        else:
+                            objective = torch.exp(score.data)/batch.sketchprobs.cuda() * (batch.rewards.cuda() -  variance_red.data) * score - torch.pow((batch.rewards.cuda() - variance_red),2)
+                        reweighted_reward = torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda()
                     else:
-                        objective = torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda() * score
+                        if not args.rl_no_syntax:
+                            reweighted_reward = torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda()
+                            objective = reweighted_reward * (score + syntax_score)
+                        else:
+                            reweighted_reward = torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda()
+                            objective = reweighted_reward * score
                     #if not args.rl_no_syntax:
                     #    objective = objective + syntax_score
                 objective = objective.mean()
@@ -146,8 +176,10 @@ if __name__ == "__main__":
                 model.opt.step()
                 #for the purpose of printing:
                 syntax_score = syntax_score.mean()
-                if not args.rl_no_syntax:
-                    objective = objective - syntax_score
+                objective 
+                #print("objective", objective)
+                if args.variance_reduction:
+                    print("variance_red_baseline:", '{:.32f}'.format(variance_red.data.item()))
             else:
                 objective, syntax_score = model.optimiser_step(IOs, batch.pseqs if pretraining else batch.sketchseqs)
             print(f"network time: {time.time()-t}, other time: {t-t2}")
@@ -158,8 +190,9 @@ if __name__ == "__main__":
             else:
                 model.iteration += 1
                 model.hole_scores.append(objective)
-            if i%args.print_freq==0: 
-                print("iteration", i, "score:", objective, "syntax_score:", syntax_score, flush=True)
+            if i%args.print_freq==0:
+                if args.use_rl: print("reweighted_reward:", reweighted_reward.mean())
+                print("iteration", i, "score:", objective if not args.use_rl else score.mean() , "syntax_score:", syntax_score, flush=True)
             if i%args.save_freq==0: 
                 if not args.nosave:
                     torch.save(model, path+f'_{str(j)}_iter_{str(i)}.p')
