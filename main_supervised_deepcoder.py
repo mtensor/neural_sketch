@@ -58,7 +58,21 @@ parser.add_argument('--imp_weight_trunc', action='store_true')
 parser.add_argument('--rl_no_syntax', action='store_true')
 parser.add_argument('--use_dc_grammar', type=str, default='NA')
 parser.add_argument('--rl_lr', type=float, default=0.001)
+parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear'])
+parser.add_argument('--sample_fn', type=str, default='original', choices=['original','linear'])
+parser.add_argument('--r_max', type=int, default=8)
+parser.add_argument('--timing', action='store_true')
 args = parser.parse_args()
+
+reward_fn = {
+            'original': None, 
+            'linear': lambda x: max(math.exp(args.r_max) - math.exp(-x), 0)/math.exp(args.r_max)
+                }[args.reward_fn]
+sample_fn = {
+            'original': None,
+            'linear': lambda x: max(math.exp(args.r_max) - math.exp(-x), 0)
+                }[args.sample_fn]
+
 
 batchsize = args.batchsize 
 Vrange = args.Vrange
@@ -109,7 +123,7 @@ if __name__ == "__main__":
          #   print("creating variance_red param")
             #variance_red = nn.Parameter(torch.Tensor([0], requires_grad=True, device="cuda"))
             #variance_red = torch.zeros(1, requires_grad=True, device="cuda") 
-        variance_red = torch.Tensor([.14]).cuda().requires_grad_()
+        variance_red = torch.Tensor([.95]).cuda().requires_grad_()
         model.opt.add_param_group({"params": variance_red})
             #model._clear_optimiser()
 
@@ -131,9 +145,11 @@ if __name__ == "__main__":
                                                 compute_sketches=not pretraining,
                                                 dc_model=dc_model if use_dc_grammar else None,
                                                 top_k_sketches=args.top_k_sketches,
-                                                inv_temp=args.inv_temp)):
+                                                inv_temp=args.inv_temp,
+                                                reward_fn=reward_fn,
+                                                sample_fn=sample_fn)):
             IOs = tokenize_for_robustfill(batch.IOs)
-            t = time.time()
+            if args.timing: t = time.time()
             if not pretraining and args.use_rl:
                 #if not hasattr(model, 'opt'):
                 #    model._get_optimiser(lr=args.rl_lr) #todo
@@ -179,11 +195,12 @@ if __name__ == "__main__":
                 objective 
                 #print("objective", objective)
                 if args.variance_reduction:
-                    print("variance_red_baseline:", '{:.32f}'.format(variance_red.data.item()))
+                    print("variance_red_baseline:", variance_red.data.item())
             else:
                 objective, syntax_score = model.optimiser_step(IOs, batch.pseqs if pretraining else batch.sketchseqs)
-            print(f"network time: {time.time()-t}, other time: {t-t2}")
-            t2 = time.time()
+            if args.timing:
+                print(f"network time: {time.time()-t}, other time: {t-t2}")
+                t2 = time.time()
             if pretraining:
                 model.pretrain_scores.append(objective)
                 model.pretrain_iteration += 1
@@ -191,8 +208,8 @@ if __name__ == "__main__":
                 model.iteration += 1
                 model.hole_scores.append(objective)
             if i%args.print_freq==0:
-                if args.use_rl: print("reweighted_reward:", reweighted_reward.mean())
-                print("iteration", i, "score:", objective if not args.use_rl else score.mean() , "syntax_score:", syntax_score, flush=True)
+                if args.use_rl: print("reweighted_reward:", reweighted_reward.mean().data.item())
+                print("iteration", i, "score:", objective.data.item() if not args.use_rl else score.mean().data.item() , "syntax_score:", syntax_score.data.item(), flush=True)
             if i%args.save_freq==0: 
                 if not args.nosave:
                     torch.save(model, path+f'_{str(j)}_iter_{str(i)}.p')

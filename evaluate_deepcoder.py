@@ -38,12 +38,12 @@ parser.add_argument('--n_test', type=int, default=500)
 parser.add_argument('--dcModel', action='store_true')
 parser.add_argument('--dc_baseline', action='store_true')
 parser.add_argument('--n_samples', type=int, default=30)
-parser.add_argument('--mdl', type=int, default=11)  #9
+parser.add_argument('--mdl', type=int, default=14)  #9
 parser.add_argument('--n_examples', type=int, default=5)
 parser.add_argument('--Vrange', type=int, default=128)
 parser.add_argument('--precomputed_data_file', type=str, default='data/prelim_val_data.p')
 parser.add_argument('--model_path', type=str, default="./deepcoder_holes.p")
-parser.add_argument('--max_to_check', type=int, default=10000)
+parser.add_argument('--max_to_check', type=int, default=5000)
 args = parser.parse_args()
 
 nSamples = args.n_samples

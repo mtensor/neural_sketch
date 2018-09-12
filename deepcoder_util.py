@@ -156,7 +156,7 @@ def parseprogram(pseq, request): #TODO
                     request, pseq, Context.EMPTY, [])
     return e
 
-def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0):
+def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0, reward_fn=None, sample_fn=None):
     """
     inv_temp==1 => use true mdls
     inv_temp==0 => sample uniformly
@@ -169,10 +169,16 @@ def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0):
     #print("prog:", prog, "choices", list(choices))
     progs, weights = zip(*choices)
     #normalize weights, and then rezip
-    rewards = [math.exp(w) for w in weights]
-    weights = [math.exp(inv_temp*w) for w in weights]
+    if reward_fn is None:
+        reward_fn = math.exp
+    if sample_fn is None:
+        sample_fn = lambda x: math.exp(inv_temp*x)
+    rewards = [reward_fn(w) for w in weights]
+    weights = [sample_fn(w) for w in weights]
+    #normalize_weights
     w_sum = sum(w for w in weights)
     weights = [w/w_sum for w in weights]
+    
     prog_reward_probs = list(zip(progs, rewards, weights))
 
     if k > 1:
