@@ -58,8 +58,8 @@ parser.add_argument('--imp_weight_trunc', action='store_true')
 parser.add_argument('--rl_no_syntax', action='store_true')
 parser.add_argument('--use_dc_grammar', type=str, default='NA')
 parser.add_argument('--rl_lr', type=float, default=0.001)
-parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp'])
-parser.add_argument('--sample_fn', type=str, default='original', choices=['original','linear','exp'])
+parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
+parser.add_argument('--sample_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
 parser.add_argument('--r_max', type=int, default=8)
 parser.add_argument('--timing', action='store_true')
 parser.add_argument('--num_half_lifes', type=float, default=4)
@@ -72,12 +72,14 @@ alpha = math.log(2)*args.num_half_lifes/math.exp(args.r_max)
 reward_fn = {
             'original': None, 
             'linear': lambda x: max(math.exp(args.r_max) - math.exp(-x), 0)/math.exp(args.r_max),
-            'exp': lambda x: math.exp(-alpha*math.exp(-x))
+            'exp': lambda x: math.exp(-alpha*math.exp(-x)),
+            'flat': lambda x: 1 if x > args.r_max else 0
                 }[args.reward_fn]
 sample_fn = {
             'original': None,
             'linear': lambda x: max(math.exp(args.r_max) - math.exp(-x), 0),
-            'exp': lambda x: math.exp(-alpha*math.exp(-x))
+            'exp': lambda x: math.exp(-alpha*math.exp(-x)),
+            'flat': lambda x: 1 if x > args.r_max else 0
                 }[args.sample_fn]
 
 
