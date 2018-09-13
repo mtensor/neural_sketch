@@ -73,13 +73,13 @@ reward_fn = {
             'original': None, 
             'linear': lambda x: max(math.exp(args.r_max) - math.exp(-x), 0)/math.exp(args.r_max),
             'exp': lambda x: math.exp(-alpha*math.exp(-x)),
-            'flat': lambda x: 1 if x > args.r_max else 0
+            'flat': lambda x: 1 if x > -args.r_max else 0
                 }[args.reward_fn]
 sample_fn = {
             'original': None,
             'linear': lambda x: max(math.exp(args.r_max) - math.exp(-x), 0),
             'exp': lambda x: math.exp(-alpha*math.exp(-x)),
-            'flat': lambda x: 1 if x > args.r_max else 0
+            'flat': lambda x: 1 if x > -args.r_max else 0
                 }[args.sample_fn]
 
 
