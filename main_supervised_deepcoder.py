@@ -218,7 +218,7 @@ if __name__ == "__main__":
                 model.hole_scores.append(objective)
             if i%args.print_freq==0:
                 if args.use_rl: print("reweighted_reward:", reweighted_reward.mean().data.item())
-                print("iteration", i, "score:", objective.data.item() if not args.use_rl else score.mean().data.item() , "syntax_score:", syntax_score.data.item(), flush=True)
+                print("iteration", i, "score:", objective if not args.use_rl else score.mean().data.item() , "syntax_score:", syntax_score if not args.use_rl else syntax_score.data.item(), flush=True)
             if i%args.save_freq==0: 
                 if not args.nosave:
                     torch.save(model, path+f'_{str(j)}_iter_{str(i)}.p')
