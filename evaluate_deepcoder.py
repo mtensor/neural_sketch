@@ -13,6 +13,7 @@ import pickle
 from deepcoder_util import grammar as basegrammar
 from deepcoder_util import parseprogram, tokenize_for_robustfill
 from makeDeepcoderData import batchloader
+from manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
 
 # TODO
 import sys
@@ -127,11 +128,6 @@ def save_results(results, args):
 		print("results file saved at", filename)
 	return savefile
 
-def percent_solved_n_checked(results, n_checked):
-	return sum(any(result.hit and result.n_checked <= n_checked for result in result_list) for result_list in results.values())/len(results)
-
-def percent_solved_time(results, time):
-	return sum(any(result.hit and result.time <= time for result in result_list) for result_list in results.values())/len(results)
 
 if __name__=='__main__':
 	#load the model
@@ -155,7 +151,6 @@ if __name__=='__main__':
 	# test_data = ['data/DeepCoder_data/T3_A2_V512_L10_validation_perm.txt']
 	# dataset = batchloader(test_data, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False)
 	# dataset = list(dataset)
-
 	# with open('data/prelim_val_data.p', 'wb') as savefile:
 	# 	pickle.dump(dataset, savefile)
 	# 	print("test file saved")
@@ -183,3 +178,5 @@ if __name__=='__main__':
 
 	#doesn't really need a full function ... 
 	file = save_results(results, args)
+
+	plot_result(results=results, plot_time=True) #doesn't account for changing result thingy

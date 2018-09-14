@@ -16,3 +16,6 @@ ln -s ../../regex_data_csv_900.p
 
 #deepcoder data
 ln -s ../../data
+
+mkdir plots
+mkdir results
