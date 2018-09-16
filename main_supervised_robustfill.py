@@ -214,6 +214,7 @@ if __name__ == "__main__":
                     torch.save(model, path+f'_iter_{str(i)}.p')
                     torch.save(model, path)
         if model.pretrain_iteration >= args.max_pretrain_iteration: pretraining = False
+        if not pretraining and model.iteration < args.max_iteration: training = True
         if training and model.iteration >= args.max_iteration: training = False
 
         ####### End train with holes ########

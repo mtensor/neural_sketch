@@ -98,9 +98,13 @@ def batchloader(size, batchsize=100, g=basegrammar, N=5, V=100, L=10, compute_sk
 if __name__=='__main__':
 	import time
 	
-	g = Grammar.fromProductions(RobustFillProductions(max_len=50, max_index=3))
-	d = sample_datum(g=g, N=5, V=50, L=10, compute_sketches=True, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
+	g = Grammar.fromProductions(RobustFillProductions(max_len=50, max_index=4))
+	d = sample_datum(g=g, N=4, V=50, L=10, compute_sketches=True, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
 	print(d.p)
+	for i,o in d.IO:
+		print("example")
+		print(i)
+		print(o)
 	#loader = batchloader(600, g=g, batchsize=200, N=5, V=50, L=10, compute_sketches=True, dc_model=None, shuffle=True, top_k_sketches=10)
 
 	# t = time.time()
