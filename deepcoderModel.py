@@ -256,7 +256,6 @@ class RobustFillLearnedFeatureExtractor(RecurrentFeatureExtractor):
         super(RobustFillLearnedFeatureExtractor, self).__init__(lexicon=list(lexicon),
                                                         cuda=self.USE_CUDA,
                                                         H=self.H,
-                                                        tasks=tasks,
                                                         bidirectional=True)
         self.MAXINPUTS = 6
 
@@ -412,17 +411,24 @@ if __name__ == '__main__':
     # g = deepcoderModel.infer_grammar(IO)
 
 
-    #Testing ROBUSTFILL:
-    IO = [('abc','abc')] 
-    program = None #
-    request = tprogram
+    #Testing ROBUSTFILL:   
+    from makeRobustFillData import sample_datum
+    from RobustFillPrimitives import RobustFillProductions
+    grammar = Grammar.fromProductions(RobustFillProductions(25, 4))
+
+    d = None
+    while not d:
+        d = sample_datum(g=grammar, N=4, V=25, L=10, compute_sketches=False, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
 
     from string import printable
-    robustfill_vocab = printable[:-5]
+    robustfill_vocab = printable[:-4]
     extractor = RobustFillLearnedFeatureExtractor(robustfill_vocab, hidden=128)
     deepcoderModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
     for i in range(400):
-        score = deepcoderModel.optimizer_step(IO, program, request)
+        score = deepcoderModel.optimizer_step(d.IO, d.p, d.tp)
 
-    g = deepcoderModel.infer_grammar(IO)
+    print(d.p)
+    print(d.IO)
+    g = deepcoderModel.infer_grammar(d.IO)
+    print(g)
 

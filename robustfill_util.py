@@ -35,6 +35,9 @@ from type import Context, arrow, UnificationFailure
 productions = RobustFillProductions()  # TODO - figure out good production probs ... 
 basegrammar = Grammar.fromProductions(productions, logVariable=0.0)  # TODO
 
+def robustfill_vocab(grammar): 
+    return [prim.name for prim in grammar.primitives] + ['<HOLE>']  # TODO
+
 class timing(object):
     def __init__(self, message):
         self.message = message

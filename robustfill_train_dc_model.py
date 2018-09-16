@@ -21,16 +21,15 @@ import sys
 sys.path.append("/om/user/mnye/ec")
 
 from grammar import Grammar, NoCandidates
-from deepcoderPrimitives import deepcoderProductions, flatten_program
+from RobustFillPrimitives import RobustFillProductions, flatten_program
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
-from deepcoder_util import parseprogram, basegrammar
-from makeDeepcoderData import batchloader
+from robustfill_util import parseprogram, robustfill_vocab
+from makeRobustFillData import batchloader
 from itertools import chain
-from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel
+from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor
 
-from main_supervised_robustfill import robustfill_vocab
 from string import printable
 
 #   from deepcoderModel import 
@@ -39,27 +38,26 @@ parser.add_argument('--debug', action='store_true')
 parser.add_argument('--nosave', action='store_true')
 parser.add_argument('-k', type=int, default=3) #TODO
 parser.add_argument('--Vrange', type=int, default=128)
-parser.add_argument('--max_epochs', type=int, default=50*400*200)
 parser.add_argument('--max_list_length', type=int, default=10)
-parser.add_argument('--save_model_path', type=str, default='./dc_model.p')
-parser.add_argument('--load_model_path', type=str, default='./dc_model.p')
+parser.add_argument('--save_model_path', type=str, default='./rb_dc_model.p')
+parser.add_argument('--load_model_path', type=str, default='./rb_dc_model.p')
 parser.add_argument('--new', action='store_true')
 parser.add_argument('--n_examples', type=int, default=4)
-parser.add_argument('--max_list_length', type=int, default=10)
-parser.add_argument('--Vrange', type=int, default=100)
+parser.add_argument('--max_length', type=int, default=25)
+parser.add_argument('--max_index', type=int, default=4)
+parser.add_argument('--max_iteration', type=int, default=50*400*100) #approximate other model
 args = parser.parse_args()
 
-max_length = 30
 batchsize = 1
-Vrange = args.Vrange
 max_iteration = args.max_iteration
 max_list_length = args.max_list_length    
 
-robustfill_io_vocab = printable[:-5]
+robustfill_io_vocab = printable[:-4]
+
+basegrammar = Grammar.fromProductions(RobustFillProductions(args.max_length, args.max_index))
 
 if __name__ == "__main__":
 
-    vocab = robustfill_vocab(basegrammar)
 
     print("Loading model", flush=True)
     try:
@@ -69,7 +67,7 @@ if __name__ == "__main__":
         print('found saved dcModel, loading ...')
     except FileNotFoundError:
         print("no saved dcModel, creating new one")
-        extractor = RobustFillLearnedFeatureExtractor(robustfill_vocab, hidden=128)  # probably want to make it much deeper .... 
+        extractor = RobustFillLearnedFeatureExtractor(robustfill_io_vocab, hidden=128)  # probably want to make it much deeper .... 
         dcModel = DeepcoderRecognitionModel(extractor, basegrammar, hidden=[128], cuda=True)  # probably want to make it much deeper .... 
 
     print("number of parameters is", sum(p.numel() for p in dcModel.parameters() if p.requires_grad))
@@ -82,13 +80,15 @@ if __name__ == "__main__":
         dcModel.iteration = 0
         dcModel.scores = []
 
-    if dcModel.iteration <= max_iteration
+    if dcModel.iteration <= max_iteration:
         for i, datum in zip(range(max_iteration - dcModel.iteration), batchloader(max_iteration - dcModel.iteration,
                                                 batchsize=1,
+                                                g=basegrammar,
                                                 N=args.n_examples,
-                                                V=Vrange,
+                                                V=args.max_length,
                                                 L=args.max_list_length, 
                                                 compute_sketches=False)): #TODO
+
 
             t = time.time()
             t3 = t-t2

@@ -24,7 +24,7 @@ from utilities import timing
 
 from makeRobustFillData import batchloader
 import math
-from robustfill_util import parseprogram, basegrammar, tokenize_for_robustfill
+from robustfill_util import parseprogram, tokenize_for_robustfill, robustfill_vocab
 from itertools import chain
 from string import printable
 
@@ -100,8 +100,7 @@ else:
 
 basegrammar = Grammar.fromProductions(RobustFillProductions(args.max_length, args.max_index))
 
-def robustfill_vocab(grammar): 
-    return [prim.name for prim in grammar.primitives] + ['<HOLE>']  # TODO
+
 
 vocab = robustfill_vocab(basegrammar)
 
