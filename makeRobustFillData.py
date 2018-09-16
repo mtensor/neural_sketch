@@ -2,8 +2,8 @@
 import pickle
 # TODO
 from deepcoder_util import make_holey_deepcoder # this might be enough
-from RobustFill_util import grammar as basegrammar # TODO
-from RobustFill_util import sample_program, generate_IO_examples # TODO
+from robustfill_util import basegrammar # TODO
+from robustfill_util import sample_program, generate_IO_examples, timing # TODO
 
 import time
 from collections import namedtuple
@@ -14,7 +14,7 @@ from grammar import Grammar, NoCandidates
 from utilities import flatten
 
 # TODO
-from RobustFillPrimitives import RobustFillProductions, flatten_program
+from RobustFillPrimitives import RobustFillProductions, flatten_program, tprogram
 
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 import math
@@ -42,16 +42,18 @@ class Datum():
 Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs', 'rewards', 'sketchprobs'])
 
 
-def sample_datum(N=5, V=100, L=10, compute_sketches=False, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None):
+def sample_datum(g=basegrammar, N=5, V=100, L=10, compute_sketches=False, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None):
 
 	#sample a program:
-	program = sample_program(*args, max_len=L, max_string_size=V)  # TODO
-	if program is bad: return None  # TODO
+	#with timing("sample program"):
+	program = sample_program(g, max_len=L, max_string_size=V)  # TODO
+	# if program is bad: return None  # TODO
 
 	# find IO
-	IO = tuple(generate_IO_examples(program, num_examples=N,  max_string_size=V))  # TODO
+	#with timing("sample IO:"):
+	IO = generate_IO_examples(program, num_examples=N,  max_string_size=V)  # TODO
 	if IO is None: return None
-
+	IO = tuple(IO)
 	# find tp
 	tp = tprogram
 	# TODO
@@ -62,14 +64,15 @@ def sample_datum(N=5, V=100, L=10, compute_sketches=False, top_k_sketches=20, in
 	if compute_sketches:
 		# find sketch
 		grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO)
-		sketch, reward, sketchprob = make_holey_deepcoder(p, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) #TODO
+		#with timing("make_holey"):
+		sketch, reward, sketchprob = make_holey_deepcoder(program, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) #TODO
 
 		# find sketchseq
 		sketchseq = tuple(flatten_program(sketch))
 	else:
 		sketch, sketchseq, reward, sketchprob = None, None, None, None
 
-	return Datum(tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob)
+	return Datum(tp, program, pseq, IO, sketch, sketchseq, reward, sketchprob)
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -78,12 +81,12 @@ def grouper(iterable, n, fillvalue=None):
 	args = [iter(iterable)] * n
 	return zip_longest(*args, fillvalue=fillvalue)
 
-def batchloader(size, batchsize=100, N=5, V=100, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None):
+def batchloader(size, batchsize=100, g=basegrammar, N=5, V=100, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None):
 	if batchsize==1:
-		data = (sample_datum(N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in range(size))
+		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in range(size))
 		yield from (x for x in data if x is not None)
 	else:
-		data = (sample_datum(N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in range(size))
+		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in range(size))
 		data = (x for x in data if x is not None)
 		grouped_data = grouper(data, batchsize)
 
@@ -93,6 +96,24 @@ def batchloader(size, batchsize=100, N=5, V=100, L=10, compute_sketches=False, d
 
 
 if __name__=='__main__':
+	import time
+	
+	g = Grammar.fromProductions(RobustFillProductions(max_len=50, max_index=3))
+	d = sample_datum(g=g, N=5, V=50, L=10, compute_sketches=True, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
+	print(d.p)
+	#loader = batchloader(600, g=g, batchsize=200, N=5, V=50, L=10, compute_sketches=True, dc_model=None, shuffle=True, top_k_sketches=10)
+
+	# t = time.time()
+	# for batch in loader:
+	# 	print(time.time() - t)
+	# 	print(batch.IOs[0])
+	# 	print(batch.ps[0])
+
+	# print(d)
+	# if d is not None:
+	# 	print(d.p)
+	# 	print(d.IO)
+	# 	print(d.sketch)
 	# from itertools import islice
 	# convert_source_to_datum("a <- [int] | b <- [int] | c <- ZIPWITH + b a | d <- COUNT isEVEN c | e <- ZIPWITH MAX a c | f <- MAP MUL4 e | g <- TAKE d f")
 

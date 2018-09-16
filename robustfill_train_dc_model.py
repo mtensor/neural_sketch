@@ -25,10 +25,13 @@ from deepcoderPrimitives import deepcoderProductions, flatten_program
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
-from deepcoder_util import parseprogram, grammar
+from deepcoder_util import parseprogram, basegrammar
 from makeDeepcoderData import batchloader
 from itertools import chain
 from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel
+
+from main_supervised_robustfill import robustfill_vocab
+from string import printable
 
 #   from deepcoderModel import 
 parser = argparse.ArgumentParser()
@@ -36,32 +39,27 @@ parser.add_argument('--debug', action='store_true')
 parser.add_argument('--nosave', action='store_true')
 parser.add_argument('-k', type=int, default=3) #TODO
 parser.add_argument('--Vrange', type=int, default=128)
-parser.add_argument('--max_epochs', type=int, default=50)
+parser.add_argument('--max_epochs', type=int, default=50*400*200)
 parser.add_argument('--max_list_length', type=int, default=10)
 parser.add_argument('--save_model_path', type=str, default='./dc_model.p')
 parser.add_argument('--load_model_path', type=str, default='./dc_model.p')
 parser.add_argument('--new', action='store_true')
+parser.add_argument('--n_examples', type=int, default=4)
+parser.add_argument('--max_list_length', type=int, default=10)
+parser.add_argument('--Vrange', type=int, default=100)
 args = parser.parse_args()
 
 max_length = 30
 batchsize = 1
 Vrange = args.Vrange
-max_epochs = args.max_epochs
-max_list_length = args.max_list_length
+max_iteration = args.max_iteration
+max_list_length = args.max_list_length    
 
-def deepcoder_vocab(grammar, n_inputs=3): 
-    return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>'] #TODO
-
-deepcoder_io_vocab = list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"]
+robustfill_io_vocab = printable[:-5]
 
 if __name__ == "__main__":
 
-    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
-
-    def loader():
-        return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=max_list_length, compute_sketches=False, shuffle=True)
-
-    vocab = deepcoder_vocab(grammar)
+    vocab = robustfill_vocab(basegrammar)
 
     print("Loading model", flush=True)
     try:
@@ -71,8 +69,8 @@ if __name__ == "__main__":
         print('found saved dcModel, loading ...')
     except FileNotFoundError:
         print("no saved dcModel, creating new one")
-        extractor = LearnedFeatureExtractor(deepcoder_io_vocab, hidden=128)
-        dcModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
+        extractor = RobustFillLearnedFeatureExtractor(robustfill_vocab, hidden=128)  # probably want to make it much deeper .... 
+        dcModel = DeepcoderRecognitionModel(extractor, basegrammar, hidden=[128], cuda=True)  # probably want to make it much deeper .... 
 
     print("number of parameters is", sum(p.numel() for p in dcModel.parameters() if p.requires_grad))
 
@@ -83,13 +81,14 @@ if __name__ == "__main__":
     if not hasattr(dcModel, 'iteration'):
         dcModel.iteration = 0
         dcModel.scores = []
-    if not hasattr(dcModel, 'epochs'):
-        dcModel.epochs = 0
 
-    for j in range(dcModel.epochs, max_epochs): #TODO
-        print(f"\tepoch {j}:")
-
-        for i, datum in enumerate(loader()): #TODO
+    if dcModel.iteration <= max_iteration
+        for i, datum in zip(range(max_iteration - dcModel.iteration), batchloader(max_iteration - dcModel.iteration,
+                                                batchsize=1,
+                                                N=args.n_examples,
+                                                V=Vrange,
+                                                L=args.max_list_length, 
+                                                compute_sketches=False)): #TODO
 
             t = time.time()
             t3 = t-t2
@@ -104,13 +103,11 @@ if __name__ == "__main__":
             if i%50000==0: 
                 #do some inference
                 #g = dcModel.infer_grammar(IO) #TODO
-
                 if not args.nosave:
-                    torch.save(dcModel, args.save_model_path+f'_{str(j)}_iter_{str(i)}.p')
+                    torch.save(dcModel, args.save_model_path+f'_iter_{str(i)}.p')
+                    torch.save(dcModel, args.save_model_path)
         #to prevent overwriting model:
-        if not args.nosave:
-            torch.save(dcModel, args.save_model_path+'_{}.p'.format(str(j)))
-            torch.save(dcModel, args.save_model_path)
+
 
 
     ######## End training ########

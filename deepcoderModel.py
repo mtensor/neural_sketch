@@ -413,9 +413,9 @@ if __name__ == '__main__':
 
 
     #Testing ROBUSTFILL:
-    IO = blah 
-    program = blah
-    request = blah
+    IO = [('abc','abc')] 
+    program = None #
+    request = tprogram
 
     from string import printable
     robustfill_vocab = printable[:-5]

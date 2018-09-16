@@ -21,44 +21,76 @@ from pregex import pregex as pre
 from collections import OrderedDict
 #from util import enumerate_reg, Hole
 
-
+import re
 import sys
 sys.path.append("/om/user/mnye/ec")
 
 from grammar import Grammar, NoCandidates
 #from deepcoderPrimitives import deepcoderProductions, flatten_program
-from robustFillPrimitives import robustFillProductions, flatten_program
+from RobustFillPrimitives import RobustFillProductions, flatten_program, tprogram, Constraint_prop, delimiters
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure, prettyProgram
 import math
-from type import Context, arrow, tint, tlist, tbool, UnificationFailure
+from type import Context, arrow, UnificationFailure
 
-productions = deepcoderProductions()  # TODO - figure out good production probs ... 
-grammar = Grammar.fromProductions(productions, logVariable=0.0)  # TODO
+productions = RobustFillProductions()  # TODO - figure out good production probs ... 
+basegrammar = Grammar.fromProductions(productions, logVariable=0.0)  # TODO
+
+class timing(object):
+    def __init__(self, message):
+        self.message = message
+
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        print(self.message, f"in {time.time() - self.start} seconds")
+
+d = {re.escape(i):i for i in delimiters}
+d['\\.'] = '\\.'
+d['\\)'] = '\\)'
+d['\\('] = '\\('
+d['('] = '\\('
+d[')'] = '\\)'
+preg_dict = {r'[A-Z][a-z]+': '\\u\\l+', r'[A-Z]': '\\u', r'[a-z]': '\\l', **d}  #note: uses escaped versions of delimiters for constraints 
 
 def extract_constraints(program):  # TODO
     #throw an issue if min bigger than max
+    return Constraint_prop().execute(program)
 
-def sample_program(*args, max_len=10, max_string_size=100):  # TODO args
-    program = g.sample() # max depth or something
+def sample_program(g=basegrammar, max_len=10, max_string_size=100):
     request = tprogram
-    p = g.sample(request)  #todo args??
+    #with timing("sample from grammar"):
+    p = g.sample(request, maximumDepth=5, maxAttempts=None)  #todo args??
+
+    if flatten_program(p).count('concat_list') >= max_len:
+        #resample
+        return sample_program(g=g, max_len=max_len, max_string_size=max_string_size)  # TODO
+    else: return p
 
 
 def generate_inputs_from_constraints(constraint_dict, min_size, max_string_size=100):
-    preg_dict = {r'[A-Z][a-z]+': '\\u\\l+', r'[A-Z]': '\\u', r'[a-z]': '\\l'}  #TODO expand for delimiters
     #sample a size from min to max
     size = random.randint(min_size, max_string_size)
     indices = set(range(size))
-    slist = random.choices(printable[:-5] , k=size)
+    slist = random.choices(printable[:-4] , k=size)
     # schematically:
+    #print("min_size", min_size)
+    #print("size", size)
     for item in constraint_dict:
-        num_to_insert = constraint_dict[item] - len(re.findall(item, ''.join(slist)))
+        #print("ITEM", item)
+        #print("sliststr:", ''.join(slist))
+        num_to_insert = max(0, constraint_dict[item] - len(re.findall(re.escape(item), ''.join(slist))))
+        #print("num_to_insert", num_to_insert)
+        if len(indices) < num_to_insert: return None
         indices_to_insert = set(random.sample(indices, k=num_to_insert))
+        # do something here
+        #print("PREG INPUT",item if item not in preg_dict else preg_dict[item])
         for i in indices_to_insert:
-            slist[i] = pre.create(item).sample() if item not in preg_dict else pre.create(preg_dict[item]).sample() # todo
+            slist[i] = pre.create(item).sample() if item not in preg_dict else pre.create(preg_dict[item]).sample()
         indices = indices - indices_to_insert
         #may be too big but whatever
-    string = ''.join(string)
+    string = ''.join(slist)
     if len(string) > max_string_size: return string[:max_string_size] # may break but whatever 
     return string
 
@@ -72,15 +104,17 @@ def generate_IO_examples(program, num_examples=5,  max_string_size=100):
         program(input) > max_string_size - can do a few tries 
         program(input) throws an error bc constraint prop wasn't perfect - can do a few tries 
     """
+    examples = []
     for _ in range(2*num_examples):
+        #with timing("generate_from constraints"):
         instring = generate_inputs_from_constraints(constraint_dict, min_size, max_string_size=max_string_size)
-        try: outstring = program(instring)
+        if instring is None: continue
+        try: outstring = program.evaluate([])(instring)
         except IndexError: continue
         if len(outstring) > max_string_size: continue  # might cheange to return None for speed
-        examples.append(instring, outstring)
+        examples.append((instring, outstring))
         if len(examples) >= num_examples: break
     else: return None
-
     return examples
 
 

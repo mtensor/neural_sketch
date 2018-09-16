@@ -179,4 +179,4 @@ if __name__=='__main__':
 	#doesn't really need a full function ... 
 	file = save_results(results, args)
 
-	plot_result(results=results, plot_time=True) #doesn't account for changing result thingy
+	plot_result(results=results, plot_time=True, model_path=args.model_path) #doesn't account for changing result thingy
