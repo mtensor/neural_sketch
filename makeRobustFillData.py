@@ -20,7 +20,7 @@ from program import Application, Hole, Primitive, Index, Abstraction, ParseFailu
 import math
 import random
 from type import Context, arrow, tint, tlist, UnificationFailure
-from itertools import zip_longest, chain
+from itertools import zip_longest, chain, repeat, islice
 from functools import reduce
 import torch
 
@@ -83,12 +83,12 @@ def grouper(iterable, n, fillvalue=None):
 
 def batchloader(size, batchsize=100, g=basegrammar, N=5, V=100, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None):
 	if batchsize==1:
-		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in range(size))
-		yield from (x for x in data if x is not None)
+		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in repeat(0))
+		yield from islice((x for x in data if x is not None), size)
 	else:
-		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in range(size))
+		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in repeat(0))
 		data = (x for x in data if x is not None)
-		grouped_data = grouper(data, batchsize)
+		grouped_data = islice(grouper(data, batchsize), size)
 
 		for group in grouped_data:
 			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob) for datum in group if datum is not None])

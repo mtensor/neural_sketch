@@ -148,7 +148,7 @@ if __name__ == "__main__":
         iter_remaining = args.max_pretrain_iteration - model.pretrain_iteration if pretraining else args.max_iteration - model.iteration
         print("pretraining:", pretraining)
         print("iter to train:", iter_remaining)
-        for i, batch in zip(range(iter_remaining), batchloader(iter_remaining*batchsize,
+        for i, batch in zip(range(iter_remaining), batchloader(iter_remaining,
                                                 g=basegrammar,
                                                 batchsize=batchsize,
                                                 N=args.n_examples,
