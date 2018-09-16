@@ -104,8 +104,9 @@ if __name__ == "__main__":
                 #do some inference
                 #g = dcModel.infer_grammar(IO) #TODO
                 if not args.nosave:
-                    torch.save(dcModel, args.save_model_path+f'_iter_{str(i)}.p')
-                    torch.save(dcModel, args.save_model_path)
+                    torch.save(dcModel.state_dict(), args.save_model_path+f'_iter_{str(i)}.p'+'state_dict')
+                    torch.save(dcModel.state_dict(), args.save_model_path+'state_dict')
+                    #dcModel.load_state_dict(torch.load(args.save_model_path+'state_dict'))
         #to prevent overwriting model:
 
 
