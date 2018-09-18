@@ -19,10 +19,11 @@ from RobustFillPrimitives import RobustFillProductions, flatten_program, tprogra
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 import math
 import random
-from type import Context, arrow, tint, tlist, UnificationFailure
+from type import Context, arrow, tint, tlist, UnificationFailure, tcharacter
 from itertools import zip_longest, chain, repeat, islice
 from functools import reduce
 import torch
+from makeTextTasks import makeTasks, loadPBETasks
 
 
 class Datum():
@@ -37,7 +38,7 @@ class Datum():
 		self.sketchprob = sketchprob
 
 	def __hash__(self): 
-		return reduce(lambda a, b: hash(a + hash(b)), flatten(self.IO), 0) + hash(self.p) + hash(self.sketch)
+		return reduce(lambda a, b: hash(a + hash(b)), flatten(self.IO, abort=lambda x: type(x) is str), 0) + hash(self.p) + hash(self.sketch)
 
 Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs', 'rewards', 'sketchprobs'])
 
@@ -95,6 +96,42 @@ def batchloader(size, batchsize=100, g=basegrammar, N=5, V=100, L=10, compute_sk
 			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None)  # check that his works 
 
 
+def makeTestdata(synth=True, challenge=False):
+	tasks = []
+	if synth:
+		tasks = makeTasks()	
+	if challenge:
+		challenge_tasks, _ = loadPBETasks()
+		tasks = tasks + challenge_tasks
+
+	tasklist = []
+	for task in tasks:
+		if task.stringConstants==[] and task.request == arrow(tlist(tcharacter), tlist(tcharacter)):
+
+				IO = tuple( (''.join(x[0]), ''.join(y)) for x,y in task.examples)
+
+				program = None
+				pseq = None
+				sketch, sketchseq, reward, sketchprob = None, None, None, None
+				tp = tprogram
+
+				tasklist.append( Datum(tp, program, pseq, IO, sketch, sketchseq, reward, sketchprob) )
+
+	return tasklist
+
+
+tasks = makeTestdata(synth=True, challenge=True)
+with open('rb_all_tasks.p', 'wb') as savefile:
+	pickle.dump(tasks, savefile)
+	print('saved rb challenge tasks')
+
+
+def loadTestTasks(path='rb_test_tasks.p'):
+	print("data file:", path)
+	with open(path, 'rb') as datafile:
+		tasks = pickle.load(datafile)
+	return tasks
+
 if __name__=='__main__':
 	import time
 	
@@ -105,6 +142,10 @@ if __name__=='__main__':
 		print("example")
 		print(i)
 		print(o)
+
+	tasks = loadTestTasks('rb_all_tasks.p')
+	for t in tasks: print(t.IO)
+
 	#loader = batchloader(600, g=g, batchsize=200, N=5, V=50, L=10, compute_sketches=True, dc_model=None, shuffle=True, top_k_sketches=10)
 
 	# t = time.time()

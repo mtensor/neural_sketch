@@ -28,7 +28,7 @@ from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from robustfill_util import parseprogram, robustfill_vocab
 from makeRobustFillData import batchloader
 from itertools import chain
-from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor
+from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor, load_rb_dc_model_from_path
 
 from string import printable
 

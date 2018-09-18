@@ -17,5 +17,10 @@ ln -s ../../regex_data_csv_900.p
 #deepcoder data
 ln -s ../../data
 
+#rb test data
+ln -s ../../rb_test_tasks.p
+ln -s ../../rb_all_tasks.p
+ln -s ../../rb_challenge_tasks.p
 mkdir plots
 mkdir results
+mkdir rb_results

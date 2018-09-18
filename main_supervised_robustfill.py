@@ -22,6 +22,8 @@ from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from RobustFillPrimitives import RobustFillProductions, flatten_program
 from utilities import timing
 
+
+from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor, load_rb_dc_model_from_path
 from makeRobustFillData import batchloader
 import math
 from robustfill_util import parseprogram, tokenize_for_robustfill, robustfill_vocab
@@ -123,7 +125,7 @@ if __name__ == "__main__":
 
     if use_dc_grammar:
         print("loading dc model")
-        dc_model=torch.load(dc_model_path)
+        dc_model = load_rb_dc_model_from_path(dc_model_path, args.max_length, args.max_index)
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))

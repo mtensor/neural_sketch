@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import torch.optim as optimization
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
 import numpy as np
 
 
@@ -13,6 +12,9 @@ import sys
 sys.path.append("/om/user/mnye/ec")
 #from recognition import RecurrentFeatureExtractor, RecognitionModel
 from grammar import Grammar  #?
+
+from RobustFillPrimitives import RobustFillProductions
+from string import printable
 
 #from main_supervised_deepcoder import deepcoder_io_vocab #TODO
 def _relu(x): return x.clamp(min=0)
@@ -388,6 +390,13 @@ class DeepcoderRecognitionModel(nn.Module):
         return g
 
 
+def load_rb_dc_model_from_path(path, max_length, max_index):
+
+    basegrammar = Grammar.fromProductions(RobustFillProductions(max_length, max_index))
+    extractor = RobustFillLearnedFeatureExtractor(printable[:-4], hidden=128)  # probably want to make it much deeper .... 
+    dcModel = DeepcoderRecognitionModel(extractor, basegrammar, hidden=[128], cuda=True)  # probably want to make it much deeper .... 
+    dcModel.load_state_dict(torch.load(path))
+    return dcModel
 
 if __name__ == '__main__':
     # from main_supervised_deepcoder import grammar, getInstance
@@ -432,3 +441,7 @@ if __name__ == '__main__':
     g = deepcoderModel.infer_grammar(d.IO)
     print(g)
 
+    dcModel = load_rb_dc_model_from_path('experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict',25,4)
+    g = dcModel.infer_grammar(d.IO)
+    print("from pretrained")
+    print(g)

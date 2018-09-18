@@ -144,6 +144,7 @@ if __name__=='__main__':
 	if args.dcModel:
 		print("loading dc_model")
 		dcModel = torch.load("./dc_model.p")
+	else: dcModel = None
 
 	###load the test dataset###
 	# test_data = ['data/DeepCoder_test_data/T3_A2_V512_L10_P500.txt']
