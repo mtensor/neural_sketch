@@ -41,7 +41,9 @@ parser.add_argument('--Vrange', type=int, default=128)
 parser.add_argument('--n_examples', type=int, default=5)
 parser.add_argument('--max_list_length', type=int, default=10)
 parser.add_argument('--max_n_inputs', type=int, default=3)
-parser.add_argument('--max_pretrain_epochs', type=int, default=4)
+parser.add_argument('--max_pretrain_epochs', type=int, default=10)
+parser.add_argument('--max_pretrain_iterations', type=int, default=100000)
+parser.add_argument('--max_iterations', type=int, default=100000)
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--train_data', nargs='*', 
     default=['data/DeepCoder_data/T2_A2_V512_L10_train.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'])
@@ -213,8 +215,10 @@ if __name__ == "__main__":
             if pretraining:
                 model.pretrain_scores.append(objective)
                 model.pretrain_iteration += 1
+                if model.pretrain_iteration >= args.max_pretrain_iterations: break
             else:
                 model.iteration += 1
+                if model.iteration >= args.max_iterations: break
                 model.hole_scores.append(objective)
             if i%args.print_freq==0:
                 if args.use_rl: print("reweighted_reward:", reweighted_reward.mean().data.item())

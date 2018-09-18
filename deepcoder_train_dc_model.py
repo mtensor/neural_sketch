@@ -41,6 +41,8 @@ parser.add_argument('--max_list_length', type=int, default=10)
 parser.add_argument('--save_model_path', type=str, default='./dc_model.p')
 parser.add_argument('--load_model_path', type=str, default='./dc_model.p')
 parser.add_argument('--new', action='store_true')
+parser.add_argument('--train_data', nargs='*', 
+    default=['data/DeepCoder_data/T2_A2_V512_L10_train.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'])
 args = parser.parse_args()
 
 max_length = 30
@@ -56,7 +58,7 @@ deepcoder_io_vocab = list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"]
 
 if __name__ == "__main__":
 
-    train_datas = ['data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt']
+    train_datas = args.train_data
 
     def loader():
         return batchloader(train_datas, batchsize=batchsize, N=5, V=Vrange, L=max_list_length, compute_sketches=False, shuffle=True)

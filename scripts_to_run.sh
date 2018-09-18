@@ -198,24 +198,6 @@ sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 1
 Submitted batch job 11705249
 
 
-Super long rnn baseline:
-name=deepcoder_long_rnn_base g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --pretrain --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --max_epochs 0 --max_pretrain_epochs 20 --Vrange 128 --save_pretrained_model_path "./deepcoder_rnn_base.p"
-
-
-
-#ROBUSTFILL:
-name=rb_first_run g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain
-Submitted batch job 11709083
-
-name=rb_first_train_dc_model g-run sbatch execute_gpu.sh python robustfill_train_dc_model.py
-
-
-
-name=rb_long_pretrain g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain --load_pretrained_model_path '../rb_first_run_1537058045390/robustfill_pretrained.p' --max_pretrain_iteration 8000 --max_iteration 8000
-
-
-
-
 
 
 name=deepcoder_512_train_normal g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --max_epochs 10 --Vrange 512 --load_pretrained_model_path '../deepcoder_pretrained_512_1536675470181/deepcoder_pretrained_512.p_9.p' --inv_temp 0.5
@@ -242,6 +224,29 @@ vim slurm-11721248.out
 
 sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --mdl 14 --model_path 'experiments/deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --n_samples 100
 Submitted batch job 11721261 
+
+Super long rnn baseline:
+name=deepcoder_long_rnn_base g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --pretrain --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --max_epochs 0 --max_pretrain_epochs 20 --Vrange 128 --save_pretrained_model_path "./deepcoder_rnn_base.p"
+
+######################DC T4##########
+
+- pretrain on T4:
+name=deepcoder_pretrained_T4 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --pretrain --max_epochs 0 --max_pretrain_epochs 1 --max_pretrain_iterations 10000 --Vrange 128 --new --save_pretrained_model_path "./deepcoder_pretrained_T4.p" --train_data ['data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'] --new
+
+- train dc model on T4:
+name=deepcoder_dcModel_T4 g-run sbatch execute_gpu.sh python deepcoder_train_dc_model.py --save_model_path './dc_model_T4.p' --new --train_data ['data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'] --max_epochs 1
+
+
+######################################################ROBUSTFILL:
+name=rb_first_run g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain
+Submitted batch job 11709083
+
+name=rb_first_train_dc_model g-run sbatch execute_gpu.sh python robustfill_train_dc_model.py
+
+
+
+name=rb_long_pretrain g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain --load_pretrained_model_path '../rb_first_run_1537058045390/robustfill_pretrained.p' --max_pretrain_iteration 8000 --max_iteration 8000
+vim experiments/deepcoder_long_rnn_base_1537308558965/slurm-11721615.out
 
 
 ###ROBUSTFILL preliminary EVALUATION:
@@ -279,37 +284,42 @@ manipulate_results.py --basefile rb_results/prelim_results_dc_baseline__test500_
 #FINAL TRAINING:
 
 ########
-DC:
+DEEPCODER:
 
-need: vim 
+TRAINING:
+T3:
 - rnn baseline - x can train longer? 
 - a good RL model - kinda
 - dc baseline - x
-
-- my model trained with dc_model in the loop - is it possible it would do worse? -- see above for comparison ... seems pretty good afaict!
-
 - 3x my model for comparison
-inv_temp 1.0, 0.5, 0.25?
+	- inv_temp 1.0, 0.5, 0.25?
 
 train 4, test 5  -optional (might be important to show superiority over very well trained rnn here)
 
-- bottleneck: training regime. 
+
+- bottleneck: training regime ... is it okay to use it??
+
+TESTING:
+
+- long tests on actual data
+- varying number of samples
+- the samples vs enum budget graph
 
 
+ROBUSTFILL:
 
-RB:
-
-need: 
-- rnn baseline - x 
-- a good RL model
-- dc baseline - x 
-
-- my model trained with dc_model in the loop - is it possible it would do worse? 
-
+TRAINING: 
+- rnn baseline - x could train longer? 
+- a good RL model - [ ] 
+- dc baseline - x
 - 3x my model for comparison
+	- inv_temp 1.0, 0.5, 0.25?
 
-train 4, test 5
 
+TESTING:
+- long tests on actual data
+- use the "real" data to make the correctness graphs Armando wants
+- the samples vs enum budget graph
 
 
 
