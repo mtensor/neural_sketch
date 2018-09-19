@@ -337,8 +337,8 @@ T3:
 
 train 4, test 5  --optional (might be important to show superiority over very well trained rnn here)
 currently:
--[X] pretraining RNN --training
--[X] training DCmodel --training
+-[X] pretraining RNN --training ep 4000 looks like a good place where its not overfit
+-[X] training DCmodel --training iter 5million looks reasonable ... may need a bigger network tho ...
 - 3x my model for comparison (decide which based on T3)
 	OLD: 
 	-[ ] 0.5
@@ -351,7 +351,6 @@ currently:
 
 
 TESTING:
-
 -[ ] long tests on actual data
 -[ ] varying number of samples
 -[ ] the samples vs enum budget frontier graph -- this could be nasty to do
@@ -370,13 +369,12 @@ TRAINING:
 	-[X] 0.5
 	-[ ] 0.25
 	NEW: (use best)
-	-[ ] 1.0
-	-[ ] 0.5
-	-[ ] 0.25
+	-[ ] 1.0 --training
+	-[ ] 0.5 --training
+	-[ ] 0.25 --training
 
 
 TESTING:
-
 -[ ] long tests on testing data,
 -[ ] use the "real" sygis data to make the correctness graphs Armando wants
 -[ ] the samples vs enum budget graph
