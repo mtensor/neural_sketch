@@ -43,7 +43,7 @@ class Datum():
 Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs', 'rewards', 'sketchprobs'])
 
 
-def sample_datum(g=basegrammar, N=5, V=100, L=10, compute_sketches=False, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None):
+def sample_datum(g=basegrammar, N=5, V=100, L=10, compute_sketches=False, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None, use_timeout=False):
 
 	#sample a program:
 	#with timing("sample program"):
@@ -66,7 +66,7 @@ def sample_datum(g=basegrammar, N=5, V=100, L=10, compute_sketches=False, top_k_
 		# find sketch
 		grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO)
 		#with timing("make_holey"):
-		sketch, reward, sketchprob = make_holey_deepcoder(program, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) #TODO
+		sketch, reward, sketchprob = make_holey_deepcoder(program, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) #TODO
 
 		# find sketchseq
 		sketchseq = tuple(flatten_program(sketch))
@@ -82,12 +82,12 @@ def grouper(iterable, n, fillvalue=None):
 	args = [iter(iterable)] * n
 	return zip_longest(*args, fillvalue=fillvalue)
 
-def batchloader(size, batchsize=100, g=basegrammar, N=5, V=100, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None):
+def batchloader(size, batchsize=100, g=basegrammar, N=5, V=100, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
 	if batchsize==1:
-		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in repeat(0))
+		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) for _ in repeat(0))
 		yield from islice((x for x in data if x is not None), size)
 	else:
-		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn) for _ in repeat(0))
+		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) for _ in repeat(0))
 		data = (x for x in data if x is not None)
 		grouped_data = islice(grouper(data, batchsize), size)
 

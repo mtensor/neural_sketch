@@ -227,6 +227,9 @@ Submitted batch job 11721261
 
 Super long rnn baseline:
 name=deepcoder_long_rnn_base g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --pretrain --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --max_epochs 0 --max_pretrain_epochs 20 --Vrange 128 --save_pretrained_model_path "./deepcoder_rnn_base.p"
+vim experiments/deepcoder_long_rnn_base_1537308558965/slurm-11721615.out
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_long_rnn_base_1537308558965/deepcoder_rnn_base.p' 
+68% accuracy ... thank the lord
 
 ######################DC T4##########
 
@@ -238,6 +241,9 @@ vim experiments/deepcoder_pretrained_T4_1537310448749/slurm-11721913.out
 name=deepcoder_dcModel_T4 g-run sbatch execute_gpu.sh python deepcoder_train_dc_model.py --save_model_path './dc_model_T4.p' --new --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt' --max_epochs 1
 vim experiments/deepcoder_dcModel_T4_1537310497320/slurm-11721914.out
 
+
+
+
 ######################################################ROBUSTFILL:
 name=rb_first_run g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain
 Submitted batch job 11709083
@@ -245,24 +251,33 @@ Submitted batch job 11709083
 name=rb_first_train_dc_model g-run sbatch execute_gpu.sh python robustfill_train_dc_model.py
 
 
-
 name=rb_long_pretrain g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain --load_pretrained_model_path '../rb_first_run_1537058045390/robustfill_pretrained.p' --max_pretrain_iteration 8000 --max_iteration 8000
-vim experiments/deepcoder_long_rnn_base_1537308558965/slurm-11721615.out
 
- 
+
+
 sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain --load_pretrained_model_path 'robustfill_holes.p' --max_iteration 8000
 
 
+###USING TIMEOUT WITH RB#####
+name=rb_timeout_0.5 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.5 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
+#sbatch execute_gpu.sh python evaluate_robustfill.py --dcModel --model_path 'experiments/rb_first_run_1537058045390/robustfill_holes.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+name=rb_timeout_1.0 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 1.0 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
 
-#USING TIMEOUT TRAINING:
+name=rb_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.25 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
+
+
+#USING TIMEOUT TRAINING DEEPCODER
 name=deepcoder_timeout_0.5 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.5 --use_dc_grammar 'dc_model.p' 
-
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.5_1537326548865/deepcoder_holes.p' 
+Submitted batch job 11728649 - 62% at half trained
 
 name=deepcoder_timeout_1.0 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 1.0 --use_dc_grammar 'dc_model.p'
-
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_1.0_1537326582936/deepcoder_holes.p' 
+Submitted batch job 11728650  - 78% at half-trained, wow!! and a nice gradual curve, too!
 
 name=deepcoder_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.25 --use_dc_grammar 'dc_model.p'
-
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.25_1537327473486//deepcoder_holes.p' 
+Submitted batch job 11728651 - 72% at half trained
 
 
 ###ROBUSTFILL preliminary EVALUATION:
@@ -304,43 +319,76 @@ DEEPCODER:
 
 TRAINING:
 T3:
-- rnn baseline - x can train longer? 
-- a good RL model - kinda
-- dc baseline - x
+-[X] rnn baseline --training --done, and not worth it to run 20 epochs vs 10
+-[X] a good RL model - kinda 
+-[X] dc baseline
 - 3x my model for comparison
-	- inv_temp 1.0, 0.5, 0.25?
+	OLD:
+	-[ ] 1.0
+	-[X] 0.5
+	-[ ] 0.25
+	NEW:
+	-[X] 1.0 --training
+	-[X] 0.5 --training
+	-[X] 0.25 --training
 
-train 4, test 5  -optional (might be important to show superiority over very well trained rnn here)
+
+train 4, test 5  --optional (might be important to show superiority over very well trained rnn here)
 currently:
-- pretraining RNN 
-- training DCmodel
+-[X] pretraining RNN --training
+-[X] training DCmodel --training
+- 3x my model for comparison (decide which based on T3)
+	OLD: 
+	-[ ] 0.5
+	NEW: (use best version)
+	-[ ] 1.0
+	-[ ] 0.5
+	-[ ] 0.25
 
-- bottleneck: training regime ... is it okay to use it??
+- bottleneck: training regime ... is it okay to use it?? -- so far it looks very good!!!
+
 
 TESTING:
 
-- long tests on actual data
-- varying number of samples
-- the samples vs enum budget graph
+-[ ] long tests on actual data
+-[ ] varying number of samples
+-[ ] the samples vs enum budget frontier graph -- this could be nasty to do
+
 
 
 ROBUSTFILL:
 
 TRAINING: 
-- rnn baseline - x could train longer? 
-- a good RL model - [ ] ehhh.....
-- dc baseline - x
-- 3x my model for comparison
-	- inv_temp 1.0, 0.5, 0.25?
+-[X] rnn baseline
+-[ ] a good RL model  maybe not worth --optional
+-[X] dc baseline
+- 3x my model for comparison (decide which based on T3)
+	OLD: 
+	-[ ] 1.0
+	-[X] 0.5
+	-[ ] 0.25
+	NEW: (use best)
+	-[ ] 1.0
+	-[ ] 0.5
+	-[ ] 0.25
 
 
 TESTING:
-- long tests on actual data
-- use the "real" data to make the correctness graphs Armando wants
-- the samples vs enum budget graph
+
+-[ ] long tests on testing data,
+-[ ] use the "real" sygis data to make the correctness graphs Armando wants
+-[ ] the samples vs enum budget graph
 
 
 
+
+TODO: 
+-[ ] decision on which types of models still to train
+-[ ] evaluation: write all of the scripts up for eval and for plotting 
+	-[ ] for ease, make eval take a file path as input, so i dont have to look things up
+	-[ ] long general runs (DC and RB)
+	-[ ] real data graphs (RB)
+	-[ ] frontier graphs (DC + RB)?
 
 
 
