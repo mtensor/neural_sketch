@@ -272,14 +272,19 @@ name=rb_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_robustfi
 name=deepcoder_timeout_0.5 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.5 --use_dc_grammar 'dc_model.p' 
 sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.5_1537326548865/deepcoder_holes.p' 
 Submitted batch job 11728649 - 62% at half trained
+Submitted batch job 11733931 at 9 epochs - 78% (i must have flipped things)
 
 name=deepcoder_timeout_1.0 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 1.0 --use_dc_grammar 'dc_model.p'
 sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_1.0_1537326582936/deepcoder_holes.p' 
 Submitted batch job 11728650  - 78% at half-trained, wow!! and a nice gradual curve, too!
+Submitted batch job 11733932 at 9 epochs - 66%
 
 name=deepcoder_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.25 --use_dc_grammar 'dc_model.p'
 sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.25_1537327473486//deepcoder_holes.p' 
 Submitted batch job 11728651 - 72% at half trained
+Submitted batch job 11733933 - at 9 epochs 80%
+
+name=deepcoder_timeout_0.10 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.10 --use_dc_grammar 'dc_model.p'
 
 
 ###ROBUSTFILL preliminary EVALUATION:
