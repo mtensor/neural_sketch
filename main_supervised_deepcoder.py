@@ -65,6 +65,7 @@ parser.add_argument('--sample_fn', type=str, default='original', choices=['origi
 parser.add_argument('--r_max', type=int, default=8)
 parser.add_argument('--timing', action='store_true')
 parser.add_argument('--num_half_lifes', type=float, default=4)
+parser.add_argument('--use_timeout', action='store_true')
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
@@ -158,7 +159,8 @@ if __name__ == "__main__":
                                                 top_k_sketches=args.top_k_sketches,
                                                 inv_temp=args.inv_temp,
                                                 reward_fn=reward_fn,
-                                                sample_fn=sample_fn)):
+                                                sample_fn=sample_fn,
+                                                use_timeout=args.use_timeout)):
             IOs = tokenize_for_robustfill(batch.IOs)
             if args.timing: t = time.time()
             if not pretraining and args.use_rl:

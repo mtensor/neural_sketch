@@ -156,30 +156,70 @@ def parseprogram(pseq, request): #TODO
                     request, pseq, Context.EMPTY, [])
     return e
 
-def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0, reward_fn=None, sample_fn=None):
+def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=False, use_timeout=False):
     """
     inv_temp==1 => use true mdls
     inv_temp==0 => sample uniformly
     0 < inv_temp < 1 ==> something in between
     """ 
     choices = g.enumerateHoles(request, prog, k=k)
+
     if len(list(choices)) == 0:
         #if there are none, then use the original program 
         choices = [(prog, 0)]
     #print("prog:", prog, "choices", list(choices))
     progs, weights = zip(*choices)
+
+    # if verbose:
+    #     for c in choices: print(c)
+
+    if sample_fn is None:
+        sample_fn = lambda x: inv_temp*math.exp(inv_temp*x)
+
+    if use_timeout:
+        # sample timeout
+        r = random.random()
+        t = -math.log(r)/inv_temp
+
+        cs = list(zip(progs, [-w for w in weights]))
+        if t < list(cs)[0][1]: return prog, None, None
+
+        below_cutoff_choices = [(p, w) for p,w in cs if t > w]
+
+
+        _, max_w = max(below_cutoff_choices, key=lambda item: item[1])
+
+        options = [(p, None, None) for p, w in below_cutoff_choices if w==max_w]
+        x = random.choices(options, k=1)
+        return x[0]
+
+        # cdf = lambda x: 1 - math.exp(-inv_temp*(x))
+        # weights = [-w for w in weights]
+        # probs = list(weights)
+        # #probs[0] = cdf(weights[0])
+        # for i in range(0, len(weights)-1):
+        #     probs[i] = cdf(weights[i+1]) - cdf(weights[i])
+
+        # probs[-1] = 1 - cdf(weights[-1])
+        # weights = tuple(probs)
+    else:
     #normalize weights, and then rezip
+    
+        weights = [sample_fn(w) for w in weights]
+        #normalize_weights
+        w_sum = sum(w for w in weights)
+        weights = [w/w_sum for w in weights]
+    
+
     if reward_fn is None:
         reward_fn = math.exp
-    if sample_fn is None:
-        sample_fn = lambda x: math.exp(inv_temp*x)
     rewards = [reward_fn(w) for w in weights]
-    weights = [sample_fn(w) for w in weights]
-    #normalize_weights
-    w_sum = sum(w for w in weights)
-    weights = [w/w_sum for w in weights]
-    
+
     prog_reward_probs = list(zip(progs, rewards, weights))
+
+    if verbose:
+        for p, r, prob in prog_reward_probs:
+            print(p, prob)
 
     if k > 1:
         x = random.choices(prog_reward_probs, weights=weights, k=1)
