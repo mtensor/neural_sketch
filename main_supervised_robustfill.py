@@ -67,7 +67,7 @@ parser.add_argument('--sample_fn', type=str, default='original', choices=['origi
 parser.add_argument('--r_max', type=int, default=8)
 parser.add_argument('--timing', action='store_true')
 parser.add_argument('--num_half_lifes', type=float, default=4)
-parser.add_argument('--use_timeout')
+parser.add_argument('--use_timeout', action='store_true')
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
