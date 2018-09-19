@@ -260,8 +260,10 @@ sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain --load_pre
 
 ###USING TIMEOUT WITH RB#####
 name=rb_timeout_0.5 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.5 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
-#sbatch execute_gpu.sh python evaluate_robustfill.py --dcModel --model_path 'experiments/rb_first_run_1537058045390/robustfill_holes.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+#sbatch execute_gpu.sh python evaluate_robustfill.py --dcModel --model_path [] --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+
 name=rb_timeout_1.0 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 1.0 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
+#running
 
 name=rb_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.25 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
 

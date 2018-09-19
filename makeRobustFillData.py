@@ -120,10 +120,10 @@ def makeTestdata(synth=True, challenge=False):
 	return tasklist
 
 
-tasks = makeTestdata(synth=True, challenge=True)
-with open('rb_all_tasks.p', 'wb') as savefile:
-	pickle.dump(tasks, savefile)
-	print('saved rb challenge tasks')
+# tasks = makeTestdata(synth=True, challenge=True)
+# with open('rb_all_tasks.p', 'wb') as savefile:
+# 	pickle.dump(tasks, savefile)
+# 	print('saved rb challenge tasks')
 
 
 def loadTestTasks(path='rb_test_tasks.p'):
