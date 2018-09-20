@@ -267,7 +267,9 @@ name=rb_timeout_1.0 g-run sbatch execute_gpu.sh python main_supervised_robustfil
 
 name=rb_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.25 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
 
+
 name=rb_timeout_0.10 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.1 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
+
 
 
 
@@ -289,6 +291,15 @@ Submitted batch job 11733933 - at 9 epochs 80%
 
 name=deepcoder_timeout_0.10 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.1 --use_dc_grammar 'dc_model.p'
 
+
+#TIMEOUT ON T4:
+name=deepcoder_T4_timeout_0.5 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.5 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
+
+name=deepcoder_T4_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.25 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
+
+name=deepcoder_T4_timeout_0.1 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.1 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
+
+name=deepcoder_T4_timeout_0.05 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.05 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
 
 ###ROBUSTFILL preliminary EVALUATION:
 sbatch execute_gpu.sh python evaluate_robustfill.py --pretrained --pretrained_model_path './experiments/rb_long_pretrain_1537123008935/robustfill_pretrained.p'
@@ -329,7 +340,7 @@ DEEPCODER:
 
 TRAINING:
 T3:
--[X] rnn baseline --training --done, and not worth it to run 20 epochs vs 10
+-[X] rnn baseline --done, and not worth it to run 20 epochs vs 10
 -[X] a good RL model - kinda 
 -[X] dc baseline
 - 3x my model for comparison
@@ -345,15 +356,14 @@ T3:
 
 train 4, test 5  --optional (might be important to show superiority over very well trained rnn here)
 currently:
--[X] pretraining RNN --training ep 4000 looks like a good place where its not overfit
--[X] training DCmodel --training iter 5million looks reasonable ... may need a bigger network tho ...
-- 3x my model for comparison (decide which based on T3)
-	OLD: 
-	-[ ] 0.5
+-[X] pretraining RNN 'deepcoder_pretrained_T4.p_0_iter_4000.p' ep 4000 looks like a good place where its not overfit
+-[X] training DCmodel 'dc_model_T4.p_0_iter_5400000.p' iter 5million looks reasonable ... may need a bigger network tho ...
+- 4x my model for comparison (decide which based on T3)
 	NEW: (use best version)
 	-[ ] 1.0
 	-[ ] 0.5
 	-[ ] 0.25
+	-[ ] 0.1
 
 - bottleneck: training regime ... is it okay to use it?? -- so far it looks very good!!!
 
@@ -380,7 +390,7 @@ TRAINING:
 	-[ ] 1.0 --training
 	-[ ] 0.5 --training
 	-[ ] 0.25 --training
-	-[X] 0.1 --training
+	-[ ] 0.1 --training
 
 
 TESTING:
