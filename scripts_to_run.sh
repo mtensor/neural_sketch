@@ -360,8 +360,8 @@ currently:
 -[X] training DCmodel 'dc_model_T4.p_0_iter_5400000.p' iter 5million looks reasonable ... may need a bigger network tho ...
 - 4x my model for comparison (decide which based on T3)
 	NEW: (use best version)
-	-[ ] 1.0
-	-[ ] 0.5
+	-[ ] 1.0 
+	-[ ] 0.5 --training
 	-[ ] 0.25
 	-[ ] 0.1
 
