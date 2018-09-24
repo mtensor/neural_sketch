@@ -19,13 +19,16 @@ sys.path.append("/om/user/mnye/ec")
 from grammar import Grammar, NoCandidates
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
-from deepcoderPrimitives import deepcoderProductions, flatten_program
+from RobustFillPrimitives import RobustFillProductions, flatten_program
 from utilities import timing
 
-from makeDeepcoderData import batchloader
+
+from deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor, load_rb_dc_model_from_path
+from makeRobustFillData import batchloader
 import math
-from deepcoder_util import parseprogram, grammar, tokenize_for_robustfill
+from robustfill_util import parseprogram, tokenize_for_robustfill, robustfill_vocab
 from itertools import chain
+from string import printable
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--pretrain', action='store_true')
@@ -35,29 +38,28 @@ parser.add_argument('--nosave', action='store_true')
 parser.add_argument('--variance_reduction', action='store_true')
 parser.add_argument('-k', type=int, default=50) #TODO
 parser.add_argument('--new', action='store_true')
-parser.add_argument('--rnn_max_length', type=int, default=30)
-parser.add_argument('--batchsize', type=int, default=200)
-parser.add_argument('--Vrange', type=int, default=128)
-parser.add_argument('--n_examples', type=int, default=5)
+parser.add_argument('--rnn_max_length', type=int, default=20)  # TODO
+parser.add_argument('--batchsize', type=int, default=100)
+parser.add_argument('--max_length', type=int, default=25)
+parser.add_argument('--n_examples', type=int, default=4)
 parser.add_argument('--max_list_length', type=int, default=10)
-parser.add_argument('--max_n_inputs', type=int, default=3)
-parser.add_argument('--max_pretrain_epochs', type=int, default=10)
-parser.add_argument('--max_pretrain_iterations', type=int, default=100000)
-parser.add_argument('--max_iterations', type=int, default=100000)
-parser.add_argument('--max_epochs', type=int, default=10)
-parser.add_argument('--train_data', nargs='*', 
-    default=['data/DeepCoder_data/T2_A2_V512_L10_train.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'])
+parser.add_argument('--max_index',type=int, default=4)
+# parser.add_argument('--max_pretrain_epochs', type=int, default=4)
+# parser.add_argument('--max_epochs', type=int, default=5)
+parser.add_argument('--max_pretrain_iteration', type=int, default=400*5*2)
+parser.add_argument('--max_iteration', type=int, default=400*5*2)
+parser.add_argument('--train_data',type=str,default='NA')
 # save and load files
-parser.add_argument('--load_pretrained_model_path', type=str, default="./deepcoder_pretrained.p")
-parser.add_argument('--save_pretrained_model_path', type=str, default="./deepcoder_pretrained.p")
-parser.add_argument('--save_model_path', type=str, default="./deepcoder_holes.p")
+parser.add_argument('--load_pretrained_model_path', type=str, default="./robustfill_pretrained.p")
+parser.add_argument('--save_pretrained_model_path', type=str, default="./robustfill_pretrained.p")
+parser.add_argument('--save_model_path', type=str, default="./robustfill_holes.p")
 parser.add_argument('--save_freq', type=int, default=200)
 parser.add_argument('--print_freq', type=int, default=1)
 parser.add_argument('--top_k_sketches', type=int, default=100)
 parser.add_argument('--inv_temp', type=float, default=1.0)
 parser.add_argument('--use_rl', action='store_true')
-parser.add_argument('--imp_weight_trunc', action='store_true')
-parser.add_argument('--rl_no_syntax', action='store_true')
+#parser.add_argument('--imp_weight_trunc', action='store_true')
+#parser.add_argument('--rl_no_syntax', action='store_true')
 parser.add_argument('--use_dc_grammar', type=str, default='NA')
 parser.add_argument('--rl_lr', type=float, default=0.001)
 parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
@@ -87,8 +89,10 @@ sample_fn = {
 
 
 batchsize = args.batchsize 
-Vrange = args.Vrange
-train_datas = args.train_data
+max_length = args.max_length
+if args.train_data != 'NA':
+    train_datas = args.train_data
+    assert False
 
 if args.use_dc_grammar == 'NA':
     use_dc_grammar = False
@@ -97,10 +101,11 @@ else:
     use_dc_grammar = True
     dc_model_path = args.use_dc_grammar
 
+basegrammar = Grammar.fromProductions(RobustFillProductions(args.max_length, args.max_index))
 
-def deepcoder_vocab(grammar, n_inputs=args.max_n_inputs): 
-    return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>']  # TODO
-vocab = deepcoder_vocab(grammar)
+
+
+vocab = robustfill_vocab(basegrammar)
 
 if __name__ == "__main__":
     print("Loading model", flush=True)
@@ -112,19 +117,16 @@ if __name__ == "__main__":
     except FileNotFoundError:
         print("no saved model, creating new one")
         model = SyntaxCheckingRobustFill(
-            input_vocabularies=[list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"],
-            list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"]], 
+            input_vocabularies=[printable[:-4], printable[:-4]], 
             target_vocabulary=vocab, max_length=args.rnn_max_length, hidden_size=512)  # TODO
         model.pretrain_iteration = 0
         model.pretrain_scores = []
-        model.pretrain_epochs = 0
         model.iteration = 0
         model.hole_scores = []
-        model.epochs = 0
 
     if use_dc_grammar:
         print("loading dc model")
-        dc_model=torch.load(dc_model_path)
+        dc_model = load_rb_dc_model_from_path(dc_model_path, args.max_length, args.max_index)
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -140,19 +142,20 @@ if __name__ == "__main__":
             #model._clear_optimiser()
 
     ####### train with holes ########
-    pretraining = args.pretrain and model.pretrain_epochs < args.max_pretrain_epochs
-    training = model.epochs < args.max_epochs
+    pretraining = args.pretrain and model.pretrain_iteration < args.max_pretrain_iteration
+    training = model.iteration < args.max_iteration and not pretraining
 
     t2 = time.time()
     while pretraining or training:
-        j = model.pretrain_epochs if pretraining else model.epochs
-        if pretraining: print(f"\tpretraining epoch {j}:")
-        else: print(f"\ttraining epoch {j}:")
         path = args.save_pretrained_model_path if pretraining else args.save_model_path
-        for i, batch in enumerate(batchloader(train_datas,
+        iter_remaining = args.max_pretrain_iteration - model.pretrain_iteration if pretraining else args.max_iteration - model.iteration
+        print("pretraining:", pretraining)
+        print("iter to train:", iter_remaining)
+        for i, batch in zip(range(iter_remaining), batchloader(iter_remaining,
+                                                g=basegrammar,
                                                 batchsize=batchsize,
                                                 N=args.n_examples,
-                                                V=Vrange,
+                                                V=max_length,
                                                 L=args.max_list_length, 
                                                 compute_sketches=not pretraining,
                                                 dc_model=dc_model if use_dc_grammar else None,
@@ -171,16 +174,6 @@ if __name__ == "__main__":
                 if args.imp_weight_trunc:
                     print("not finished implementing")
                     assert False
-                #     batch.rewards, batch.sketchseqs
-                #     torch.clamp(q/p, max=c)
-                #     pscore, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
-                #     torch.clamp(qscore/batch.sketchprobs, max=c)
-                #     term_1 = torch.clamp(torch.exp(pscore.data)/batch.sketchprobs.cuda(), max=c) * (batch.reward.cuda() -  variance_red.data) * pscore
-                #     target, qscore, _ = model.sampleAndScore(IOs, autograd=True)
-                #     term_2_rewards = find_rewards(target, )
-                #     p_over_q = something#a pain in the but 
-                #     term_2 = torch.clamp() * (batch.reward.cuda() -  variance_red.data) * qscore 
-                #     objective = term_1 + term_2 + syntax_score - torch.pow((batch.reward.cuda() - variance_red),2)
                 else: 
                     score, syntax_score = model.score(IOs, batch.sketchseqs, autograd=True)
                     print("rewards:", batch.rewards.mean())
@@ -198,44 +191,35 @@ if __name__ == "__main__":
                         else:
                             reweighted_reward = torch.exp(score.data)/batch.sketchprobs.cuda() * batch.rewards.cuda()
                             objective = reweighted_reward * score
-                    #if not args.rl_no_syntax:
-                    #    objective = objective + syntax_score
                 objective = objective.mean()
                 (-objective).backward()
                 model.opt.step()
                 #for the purpose of printing:
                 syntax_score = syntax_score.mean()
                 objective 
-                #print("objective", objective)
                 if args.variance_reduction:
                     print("variance_red_baseline:", variance_red.data.item())
             else:
                 objective, syntax_score = model.optimiser_step(IOs, batch.pseqs if pretraining else batch.sketchseqs)
             if args.timing:
-                print(f"network time: {time.time()-t}, other time: {t-t2}")
+                print(f"network time: {time.time()-t}, other time: {t-t2}", flush=True)
                 t2 = time.time()
             if pretraining:
                 model.pretrain_scores.append(objective)
                 model.pretrain_iteration += 1
-                if model.pretrain_iteration >= args.max_pretrain_iterations: break
             else:
                 model.iteration += 1
-                if model.iteration >= args.max_iterations: break
                 model.hole_scores.append(objective)
             if i%args.print_freq==0:
                 if args.use_rl: print("reweighted_reward:", reweighted_reward.mean().data.item())
                 print("iteration", i, "score:", objective if not args.use_rl else score.mean().data.item() , "syntax_score:", syntax_score if not args.use_rl else syntax_score.data.item(), flush=True)
             if i%args.save_freq==0: 
                 if not args.nosave:
-                    torch.save(model, path+f'_{str(j)}_iter_{str(i)}.p')
+                    torch.save(model, path+f'_iter_{str(i)}.p')
                     torch.save(model, path)
-        if not args.nosave:
-            torch.save(model, path+'_{}.p'.format(str(j)))
-            torch.save(model, path)
-        if pretraining: model.pretrain_epochs += 1
-        else: model.epochs += 1
-        if model.pretrain_epochs >= args.max_pretrain_epochs: pretraining = False
-        if model.epochs >= args.max_epochs: training = False
+        if model.pretrain_iteration >= args.max_pretrain_iteration: pretraining = False
+        if not pretraining and model.iteration < args.max_iteration: training = True
+        if training and model.iteration >= args.max_iteration: training = False
 
         ####### End train with holes ########
 

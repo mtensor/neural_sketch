@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH --qos=tenenbaum
-#SBATCH --time=1000
+#SBATCH --time=3000
 #SBATCH --mem=30G
 #SBATCH --job-name=neural_sketch
 #SBATCH --cpus-per-task=1

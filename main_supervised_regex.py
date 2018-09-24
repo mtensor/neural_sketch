@@ -1,12 +1,9 @@
-#Sketch project
-
-
+#Sketch project regex supervised
 from builtins import super
 import pickle
 import string
 import argparse
 import random
-
 import torch
 from torch import nn, optim
 
@@ -20,9 +17,6 @@ from collections import OrderedDict
 from regex_util import enumerate_reg, Hole
 regex_prior = RegexPrior()
 #k_shot = 4
-
-
-
 
 regex_vocab = list(string.printable[:-4]) + \
     [pre.OPEN, pre.CLOSE, pre.String, pre.Concat, pre.Alt, pre.KleeneStar, pre.Plus, pre.Maybe, Hole] + \
@@ -270,49 +264,6 @@ if __name__ == "__main__":
                 torch.save(model, './sketch_model_holes.p')
 
     ####### End train with holes ########
-
-
-
-    ######testing######
-
-
-    # ###### full RL training with enumeration ########
-    # optimizer = optim.Adam(model.parameters(), lr=1e-3)
-
-    # for batch in actual_data: #or synthetic data, whatever:
-    #     optimizer.zero_grad()
-    #     samples, scores = model.sampleAndScore(batch, autograd=True) #TODO: change so you can get grad through here, and so that scores are seperate???
-    #     objective = []
-    #     for sample, score, examples in zip(samples, scores, batch):
-    #         #DO RL
-    #         objective.append = -score*find_ll_reward_with_enumeration(sample, examples, time=10) #TODO, ideally should be per hole
-
-
-    #     objective = torch.sum(objective)
-    #     #DO RL 
-    #     #TODO???? oh god. Make reward in positive range??) 
-    #     #Q: is it even
-
-    #     objective.backward()
-    #     optimizer.step()
-
-    #from holes, enumerate:
-    #option 1: use ec enumeration
-    #option 2: use something else
-    """
-    RL questions:
-    - should I do param updates for each batch???
-    - can we even get gradients through the whole sample? no, but not too hard I think
-    - 
-    """
-    #trees will be nice because you can enumerate within the tree by just sampling more --- then is it even worth it??
-    ###### End full training ########
-
-
-
-
-    #informal testing:
-
 
 
 

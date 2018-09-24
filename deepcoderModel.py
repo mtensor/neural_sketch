@@ -5,14 +5,17 @@ import torch.nn.functional as F
 import torch.optim as optimization
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
 import numpy as np
+import random
 
 
 import sys
 sys.path.append("/om/user/mnye/ec")
 #from recognition import RecurrentFeatureExtractor, RecognitionModel
 from grammar import Grammar  #?
+
+from RobustFillPrimitives import RobustFillProductions
+from string import printable
 
 #from main_supervised_deepcoder import deepcoder_io_vocab #TODO
 def _relu(x): return x.clamp(min=0)
@@ -191,14 +194,13 @@ class RecurrentFeatureExtractor(nn.Module):
 
     #     return None
 
-
+#For DEEPCODER TASKS
 class LearnedFeatureExtractor(RecurrentFeatureExtractor):
 
     def tokenize(self, examples):
         def sanitize(l): return [z if z in self.lexicon else "?"
                                  for z_ in l
                                  for z in (z_ if isinstance(z_, list) else [z_])]
-
         tokenized = []
         for xs, y in examples:
             if isinstance(y, list):
@@ -219,9 +221,7 @@ class LearnedFeatureExtractor(RecurrentFeatureExtractor):
                 if len(x) > self.maximumLength:
                     return None
                 serializedInputs.append(x)
-
             tokenized.append((tuple(serializedInputs), y))
-
         return tokenized
 
     def __init__(self, lexicon, hidden=128, use_cuda=True):
@@ -246,17 +246,21 @@ class LearnedFeatureExtractor(RecurrentFeatureExtractor):
             H=self.H,
             bidirectional=True)
 
+#For ROBUSTFILL TASKS
+class RobustFillLearnedFeatureExtractor(RecurrentFeatureExtractor):
+    def tokenize(self, examples):
+        return examples
 
+    def __init__(self, lexicon, hidden=128, use_cuda=True): #was(self, tasks)
+        self.lexicon = set(lexicon)
+        self.USE_CUDA = use_cuda
+        self.H = hidden
 
-
-
-
-
-
-
-
-
-
+        super(RobustFillLearnedFeatureExtractor, self).__init__(lexicon=list(lexicon),
+                                                        cuda=self.USE_CUDA,
+                                                        H=self.H,
+                                                        bidirectional=True)
+        self.MAXINPUTS = 6
 
 
 class DeepcoderRecognitionModel(nn.Module):
@@ -361,12 +365,12 @@ class DeepcoderRecognitionModel(nn.Module):
             variables, [
                 (productions[k].view(1), t, prog) for k, (_, t, prog) in enumerate(
                     self.grammar.productions)])
-        print("WARNING: loss mode = dreamcoder")
+        #print("WARNING: loss mode = dreamcoder")
         return - g.logLikelihood(request, program) #program.logLikelihood(g)
 
 
     def optimizer_step(self, IO, program, request):
-        print("Warning, no batching yet")
+        #print("Warning, no batching yet")
 
         self.opt.zero_grad()
 
@@ -387,215 +391,58 @@ class DeepcoderRecognitionModel(nn.Module):
         return g
 
 
+def load_rb_dc_model_from_path(path, max_length, max_index):
+
+    basegrammar = Grammar.fromProductions(RobustFillProductions(max_length, max_index))
+    extractor = RobustFillLearnedFeatureExtractor(printable[:-4], hidden=128)  # probably want to make it much deeper .... 
+    dcModel = DeepcoderRecognitionModel(extractor, basegrammar, hidden=[128], cuda=True)  # probably want to make it much deeper .... 
+    dcModel.load_state_dict(torch.load(path))
+    return dcModel
 
 if __name__ == '__main__':
-    from main_supervised_deepcoder import grammar, getInstance
-    deepcoder_io_vocab = list(range(-128,128))
+    # from main_supervised_deepcoder import grammar, getInstance
+    # deepcoder_io_vocab = list(range(-128,128))
 
-    inst = getInstance() #k_shot=4, max_length=30, verbose=False, with_holes=False, k=None)
+    # inst = getInstance() #k_shot=4, max_length=30, verbose=False, with_holes=False, k=None)
 
 
-    IO = inst['IO']
-    print("IO:", IO)
-    program = inst['p']
-    print("program:", program)
+    # IO = inst['IO']
+    # print("IO:", IO)
+    # program = inst['p']
+    # print("program:", program)
 
-    request = inst['tp']
+    # request = inst['tp']
 
-    extractor = LearnedFeatureExtractor(deepcoder_io_vocab, hidden=128)
+    # extractor = LearnedFeatureExtractor(deepcoder_io_vocab, hidden=128)
+    # deepcoderModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
+    # for i in range(400):
+    #     score = deepcoderModel.optimizer_step(IO, program, request)
+
+    # g = deepcoderModel.infer_grammar(IO)
+
+
+    #Testing ROBUSTFILL:   
+    from makeRobustFillData import sample_datum
+    from RobustFillPrimitives import RobustFillProductions
+    grammar = Grammar.fromProductions(RobustFillProductions(25, 4))
+
+    d = None
+    while not d:
+        d = sample_datum(g=grammar, N=4, V=25, L=10, compute_sketches=False, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
+
+    from string import printable
+    robustfill_vocab = printable[:-4]
+    extractor = RobustFillLearnedFeatureExtractor(robustfill_vocab, hidden=128)
     deepcoderModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
     for i in range(400):
-        score = deepcoderModel.optimizer_step(IO, program, request)
+        score = deepcoderModel.optimizer_step(d.IO, d.p, d.tp)
 
-    g = deepcoderModel.infer_grammar(IO)
+    print(d.p)
+    print(d.IO)
+    g = deepcoderModel.infer_grammar(d.IO)
+    print(g)
 
-
-
-    # def replaceProgramsWithLikelihoodSummaries(self, frontier):
-    #     return Frontier(
-    #         [
-    #             FrontierEntry(
-    #                 program=self.grammar.closedLikelihoodSummary(
-    #                     frontier.task.request,
-    #                     e.program),
-    #                 logLikelihood=e.logLikelihood,
-    #                 logPrior=e.logPrior) for e in frontier],
-    #         task=frontier.task)
-
-    # def train(self, frontiers, _=None, steps=250, lr=0.0001, topK=1, CPUs=1,
-    #           timeout=None, helmholtzRatio=0., helmholtzBatch=5000):
-    #     """
-    #     helmholtzRatio: What fraction of the training data should be forward samples from the generative model?
-    #     """
-    #     requests = [frontier.task.request for frontier in frontiers]
-    #     frontiers = [frontier.topK(topK).normalize()
-    #                  for frontier in frontiers if not frontier.empty]
-
-    #     # We replace each program in the frontier with its likelihoodSummary
-    #     # This is because calculating likelihood summaries requires juggling types
-    #     # And type stuff is expensive!
-    #     frontiers = [self.replaceProgramsWithLikelihoodSummaries(f).normalize()
-    #                  for f in frontiers]
-
-    #     # Not sure why this ever happens
-    #     if helmholtzRatio is None:
-    #         helmholtzRatio = 0.
-
-    #     eprint("Training a recognition model from %d frontiers, %d%% Helmholtz, feature extractor %s." % (
-    #         len(frontiers), int(helmholtzRatio * 100), self.featureExtractor.__class__.__name__))
-
-    #     # The number of Helmholtz samples that we generate at once
-    #     # Should only affect performance and shouldn't affect anything else
-    #     HELMHOLTZBATCH = helmholtzBatch
-    #     helmholtzSamples = []
-
-    #     optimizer = torch.optim.Adam(
-    #         self.parameters(), lr=lr, eps=1e-3, amsgrad=True)
-    #     if timeout:
-    #         start = time.time()
-
-    #     with timing("Trained recognition model"):
-    #         for i in range(1, steps + 1):
-    #             if timeout and time.time() - start > timeout:
-    #                 break
-    #             losses = []
-
-    #             if helmholtzRatio < 1.:
-    #                 permutedFrontiers = list(frontiers)
-    #                 random.shuffle(permutedFrontiers)
-    #             else:
-    #                 permutedFrontiers = [None]
-    #             for frontier in permutedFrontiers:
-    #                 # Randomly decide whether to sample from the generative
-    #                 # model
-    #                 doingHelmholtz = random.random() < helmholtzRatio
-    #                 if doingHelmholtz:
-    #                     if helmholtzSamples == []:
-    #                         helmholtzSamples = \
-    #                             list(self.sampleManyHelmholtz(requests,
-    #                                                           HELMHOLTZBATCH,
-    #                                                           CPUs))
-    #                     if len(helmholtzSamples) == 0:
-    #                         eprint(
-    #                             "WARNING: Could not generate any Helmholtz samples. Disabling Helmholtz.")
-    #                         helmholtzRatio = 0.
-    #                         doingHelmholtz = False
-    #                     else:
-    #                         attempt = helmholtzSamples.pop()
-    #                         if attempt is not None:
-    #                             self.zero_grad()
-    #                             loss = self.frontierKL(attempt)
-    #                         else:
-    #                             doingHelmholtz = False
-    #                 if not doingHelmholtz:
-    #                     if helmholtzRatio < 1.:
-    #                         self.zero_grad()
-    #                         loss = self.frontierKL(frontier)
-    #                     else:
-    #                         # Refuse to train on the frontiers
-    #                         continue
-
-    #                 if is_torch_invalid(loss):
-    #                     if doingHelmholtz:
-    #                         eprint("Invalid real-data loss!")
-    #                     else:
-    #                         eprint("Invalid Helmholtz loss!")
-    #                 else:
-    #                     loss.backward()
-    #                     optimizer.step()
-    #                     losses.append(loss.data.tolist()[0])
-    #                     if False:
-    #                         if doingHelmholtz:
-    #                             eprint(
-    #                                 "\tHelmholtz data point loss:",
-    #                                 loss.data.tolist()[0])
-    #                         else:
-    #                             eprint(
-    #                                 "\tReal data point loss:",
-    #                                 loss.data.tolist()[0])
-    #             if (i == 1 or i % 10 == 0) and losses:
-    #                 eprint("Epoch", i, "Loss", sum(losses) / len(losses))
-    #                 gc.collect()
-
-    # def sampleHelmholtz(self, requests, statusUpdate=None, seed=None):
-    #     if seed is not None:
-    #         random.seed(seed)
-    #     request = random.choice(requests)
-
-    #     #eprint("About to draw a sample")
-    #     program = self.grammar.sample(request, maximumDepth=6, maxAttempts=100)
-    #     #eprint("sample", program)
-    #     if program is None:
-    #         return None
-    #     task = self.featureExtractor.taskOfProgram(program, request)
-    #     #eprint("extracted features")
-
-    #     if statusUpdate is not None:
-    #         # eprint(statusUpdate, end='')
-    #         flushEverything()
-    #     if task is None:
-    #         return None
-
-    #     if hasattr(self.featureExtractor, 'lexicon'):
-    #         #eprint("tokenizing...")
-    #         if self.featureExtractor.tokenize(task.examples) is None:
-    #             return None
-
-    #     frontier = Frontier([FrontierEntry(program=program,
-    #                                        logLikelihood=0., logPrior=0.)],
-    #                         task=task)
-    #     #eprint("replacing with likelihood summary")
-    #     frontier = self.replaceProgramsWithLikelihoodSummaries(frontier)
-    #     #eprint("successfully got a sample")
-    #     return frontier
-
-    # def sampleManyHelmholtz(self, requests, N, CPUs):
-    #     eprint("Sampling %d programs from the prior on %d CPUs..." % (N, CPUs))
-    #     flushEverything()
-    #     frequency = N / 50
-    #     startingSeed = random.random()
-    #     samples = parallelMap(
-    #         1,
-    #         lambda n: self.sampleHelmholtz(requests,
-    #                                        statusUpdate='.' if n % frequency == 0 else None,
-    #                                        seed=startingSeed + n),
-    #         range(N))
-    #     eprint()
-    #     flushEverything()
-    #     samples = [z for z in samples if z is not None]
-    #     eprint()
-    #     eprint("Got %d/%d valid samples." % (len(samples), N))
-    #     flushEverything()
-
-    #     return samples
-
-    # def enumerateFrontiers(self,
-    #                        tasks,
-    #                        likelihoodModel,
-    #                        solver=None,
-    #                        enumerationTimeout=None,
-    #                        testing=False,
-    #                        CPUs=1,
-    #                        frontierSize=None,
-    #                        maximumFrontier=None,
-    #                        evaluationTimeout=None):
-    #     with timing("Evaluated recognition model"):
-    #         grammars = {}
-    #         for task in tasks:
-    #             features = self.featureExtractor.featuresOfTask(task)
-    #             variables, productions = self(features)
-    #             # eprint("variable")
-    #             # eprint(variables.data[0])
-    #             # for k in range(len(self.grammar.productions)):
-    #             #     eprint("production",productions.data[k])
-    #             grammars[task] = Grammar(
-    #                 variables.data.tolist()[0], [
-    #                     (productions.data.tolist()[k], t, p) for k, (_, t, p) in enumerate(
-    #                         self.grammar.productions)])
-
-    #     return multicoreEnumeration(grammars, tasks, likelihoodModel,
-    #                                 solver=solver,
-    #                                 testing=testing,
-    #                                 enumerationTimeout=enumerationTimeout,
-    #                                 CPUs=CPUs, maximumFrontier=maximumFrontier,
-    #                                 evaluationTimeout=evaluationTimeout)
+    dcModel = load_rb_dc_model_from_path('experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict',25,4)
+    g = dcModel.infer_grammar(d.IO)
+    print("from pretrained")
+    print(g)

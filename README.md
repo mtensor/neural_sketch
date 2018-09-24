@@ -13,7 +13,7 @@
 
 
 #New TODO:
-- [ ] use fully supervised version of holes
+- [X] use fully supervised version of holes
 - [ ] more sophisiticated nn architectures
 
 
@@ -52,65 +52,65 @@
 
 
 #TODO for DEEPCODER for ICLR:
-- [ ] dataset/how to train
+- [X] dataset/how to train
 - [X] primitive set for deepcoder
 - [X] implement the program.flatten() method for nns (super easy)
-- [ ] implement parsing from string (not bad either, use stack machine )
+- [X] implement parsing from string (not bad either, use stack machine )
 - [X] implement training (pretrain and makeholey)
-- [ ] implement evaluation
+- [X] implement evaluation
 - [ ] test out reversing nn implementation
 
 #ACTUAL TODO for DEEPCODER ICLR
 Training:
 - [X] DSL weights (email dude) - x 
-- [ ] generating train/test data efficiently
-- [ ] offline dataset generation
-- [ ] constraint based data gen
+- [X] generating train/test data efficiently
+- [X] offline dataset generation
+- [X] constraint based data gen
 - [ ] pypy for data gen
 - [X] modify mutation code so no left_application is a hole
 - [X] adding HOLE to parser when no left_application is a hole
-- [ ] Compare no left_application is a hole to the full case where everything can be a hole
-- [ ] write parser for full case 
+- [X] Compare no left_application is a hole to the full case where everything can be a hole
+- [X] write parser for full case 
 - [X] add HOLE to nn
-- [ ] dealing with different request types
+- [X] dealing with different request types
 - [ ] multple holes (modify mutator)
-- [ ] deepcoder recognition model in the loop
-- [ ] simple deepcoder baseline
+- [X] deepcoder recognition model in the loop - half completed 
+- [X] simple deepcoder baseline
 - [ ] make syntaxrobustfill have same output signature as regular robustfill
 - [X] limit depth of programs
 - [X] offline dataset collection and training
 	- [X] generation
 	- [X] training
 	- [X] with sketch stuff
-- [ ] filtering out some dumb programs (ex lambda $0)
-- [ ] use actual deepcoder data, write converter
-- [ ] deal with issue of different types and IO effectively in a reasonable manner
-- [ ] incorporate constraint based stuff from Marc
+- [X] filtering out some dumb programs (ex lambda $0)
+- [X] use actual deepcoder data, write converter
+- [X] deal with issue of different types and IO effectively in a reasonable manner
+- [X] incorporate constraint based stuff from Marc
 
 
 Evaluation:
 - [X] parsing w/Holes - sorta
 - [ ] beam search 
-- [ ] figure out correct evaluation scheme 
+- [X] figure out correct evaluation scheme 
 - [ ] parallelization? (dealing with eval speed)
-- [ ] good test set
-- [ ] validation set
+- [X] good test set
+- [X] validation set
 - [ ] test multiple holes training/no_left_application vs other case
 - [ ] using speed
 
 Overall:
 - [ ] run training and evaluation (on val set) together for multple experiments to find best model 
-- [ ] refactor everything (a model Class, perhaps??)
+- [X] refactor everything (a model Class, perhaps??)
 
 Tweaking:
-- [ ] tweak topk
-- [ ] neural network tweaks for correct output format (deal with types and such)
+- [X] tweak topk - did it with a temperature param, seemed to work well
+- [ ] neural network tweaks for correct output format (deal with types and such) - I just fudged it
 - [ ] 
 
 #TODO for refactoring: 
-- [ ] make one main (domain agnostic) training script/file
-- [ ] make one main (domain agnostic) evaluation script/file
-- [ ] figure out the correct class structure to make work easier to extend and tweak.
+- [X] make one main (domain agnostic) training script/file - decided against
+- [X] make one main (domain agnostic) evaluation script/file - decided against
+- [X] figure out the correct class structure to make work easier to extend and tweak. - decided against
 
 
 #TODO for NAPS:

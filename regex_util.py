@@ -12,7 +12,6 @@ import math
 from type import tpregex, Context
 
 import pregex as pre
-from sketch_project import Hole
 import dill
 import random
 
@@ -38,60 +37,43 @@ productions = [
         math.log(0.10),
         prim) for prim in prim_list]
 
-
-baseGrammar = Grammar.fromProductions(productions)
+basegrammar = Grammar.fromProductions(productions)
 
 def enumerate_reg(number):
     depth = number
-    yield from ((prog.evaluate([]), l) for l, _, prog in baseGrammar.enumeration(Context.EMPTY, [], tpregex, depth))
-
+    yield from ((prog.evaluate([]), l) for l, _, prog in basegrammar.enumeration(Context.EMPTY, [], tpregex, depth))
 
 def fill_hole(sketch:pre.pregex, subtree:pre.pregex) -> pre.pregex:
     """
     a function which fills one hole WITH THE SAME SUBTREE. requires only one hole in the whole thing
     """
-
     def fill_hole_inner(sketch:pre.pregex) -> pre.pregex:
-        if type(sketch) is Hole:
-            return subtree
-        else:
-            return sketch.map(fill_hole_inner)
-
+        if type(sketch) is Hole: return subtree
+        else: return sketch.map(fill_hole_inner)
     return fill_hole_inner(sketch)
-
 
 ####data loading#####
 def date_data(maxTasks=None, nExamples=5):
     taskfile = "./dates.p"
-
     with open(taskfile, 'rb') as handle:
         data = dill.load(handle)
-
     tasklist =  [column['data'][:nExamples] for column in data if len(column['data']) >= nExamples]
-
     if maxTasks is not None:
         random.seed(42) #42 #80
         random.shuffle(tasklist)
         del tasklist[maxTasks:]
-
     return tasklist
 
 def all_data(maxTasks=None, nExamples=5):
     taskfile = "./regex_data_csv_900.p"
-
     with open(taskfile, 'rb') as handle:
         data = dill.load(handle)
-
     tasklist = [column[:nExamples] for column in data[0] if len(column) >=nExamples] #a list of indices
-
     if maxTasks is not None:
         random.seed(42) #42 #80
         random.shuffle(tasklist)
         del tasklist[maxTasks:]
-
     return tasklist
-
-
 
 """
 def lookup_str(string: str) -> ec.Program:
@@ -115,7 +97,7 @@ def pre_to_prog(regex: pre.pregex) -> ec.Program:
         print("WARNING: doing stupidest possible thing for Strings")
         return Application(Primitive.GLOBALS['r_concat'], Application( lookup_str(regex.arg[0]), pre_to_prog(pre.String(regex.arg[0:]) )))
     elif regex.type == 'Hole':
-        raise unimplemented
+        return Hole #TODO
     elif regex.type == 'CharacterClass':
         if regex.name ==  '.': return Primtive.GLOBALS['r_dot']
         elif regex.name ==  '\\d': return Primtive.GLOBALS['r_d']
@@ -125,7 +107,6 @@ def pre_to_prog(regex: pre.pregex) -> ec.Program:
         elif regex.name ==  '\\u': return Primtive.GLOBALS['r_u']
         else: assert False
     else: assert False
-
 
 def convert_ec_program_to_pregex(program: ec.program) -> pre.pregex:
     #probably just a conversion:
@@ -149,7 +130,6 @@ def find_ll_reward_with_enumeration(sample, examples, time=10):
         if timeout is not None and time() - starting > timeout:
             break
     return maxll
-
 """
 
 if __name__ == '__main__':
