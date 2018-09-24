@@ -20,6 +20,7 @@ import sys
 sys.path.append("/om/user/mnye/ec")
 from program import ParseFailure, Context
 from grammar import NoCandidates
+from utilities import timing
 
 from itertools import islice, zip_longest
 from functools import reduce
@@ -37,6 +38,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--pretrained', action='store_true')
 parser.add_argument('--n_test', type=int, default=500)
 parser.add_argument('--dcModel', action='store_true')
+parser.add_argument('--dcModel_path',type=str, default="./dc_model.p")
 parser.add_argument('--dc_baseline', action='store_true')
 parser.add_argument('--n_samples', type=int, default=30)
 parser.add_argument('--mdl', type=int, default=14)  #9
@@ -45,6 +47,9 @@ parser.add_argument('--Vrange', type=int, default=128)
 parser.add_argument('--precomputed_data_file', type=str, default='data/prelim_val_data.p')
 parser.add_argument('--model_path', type=str, default="./deepcoder_holes.p")
 parser.add_argument('--max_to_check', type=int, default=5000)
+parser.add_argument('--resultsfile', type=str, default='NA')
+parser.add_argument('--shuffled', action='store_true')
+parser.add_argument('--beam', action='store_true')
 args = parser.parse_args()
 
 nSamples = args.n_samples
@@ -74,7 +79,10 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 		# can replace with a beam search at some point
 		# TODO: use score for allocating resources
 		tokenized = tokenize_for_robustfill([datum.IO])
-		samples, _scores, _ = model.sampleAndScore(tokenized, nRepeats=nRepeats)
+		if args.beam:
+			samples, _scores = model.beam_decode(tokenized, beam_size=nRepeats)
+		else:
+			samples, _scores, _ = model.sampleAndScore(tokenized, nRepeats=nRepeats)
 		# only loop over unique samples:
 		samples = {tuple(sample) for sample in samples}
 	sketches = []
@@ -116,7 +124,9 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 def save_results(results, args):
 	timestr = str(int(time.time()))
 	r = '_test' + str(args.n_test) + '_'
-	if args.dc_baseline:
+	if args.resultsfile != 'NA':
+		filename = 'results/' + args.resultsfile + '.p'
+	elif args.dc_baseline:
 		filename = "results/prelim_results_dc_baseline_" + r + timestr + '.p'
 	elif args.pretrained:
 		filename = "results/prelim_results_rnn_baseline_" + r + timestr + '.p'
@@ -143,7 +153,7 @@ if __name__=='__main__':
 		model = torch.load(args.model_path) #TODO
 	if args.dcModel:
 		print("loading dc_model")
-		dcModel = torch.load("./dc_model.p")
+		dcModel = torch.load(args.dcModel_path)
 	else: dcModel = None
 
 	###load the test dataset###
@@ -160,6 +170,10 @@ if __name__=='__main__':
 	with open(args.precomputed_data_file, 'rb') as datafile:
 		dataset = pickle.load(datafile)
 	# optional:
+
+	if args.shuffled:
+		random.seed(42)
+		random.shuffle(dataset)
 	#dataset = random.shuffle(dataset)
 	del dataset[args.n_test:]
 

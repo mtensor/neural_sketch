@@ -261,12 +261,9 @@ sbatch execute_gpu.sh python main_supervised_robustfill.py --pretrain --load_pre
 ###USING TIMEOUT WITH RB#####
 name=rb_timeout_0.5 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.5 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
 #sbatch execute_gpu.sh python evaluate_robustfill.py --dcModel --model_path [] --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
-
 name=rb_timeout_1.0 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 1.0 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
 #running
-
 name=rb_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.25 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
-
 
 name=rb_timeout_0.10 g-run sbatch execute_gpu.sh python main_supervised_robustfill.py --use_timeout --inv_temp 0.1 --load_pretrained_model_path '../rb_long_pretrain_1537123008935/robustfill_pretrained.p' --max_iteration 5000 --use_dc_grammar '../rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict'
 
@@ -285,21 +282,59 @@ Submitted batch job 11728650  - 78% at half-trained, wow!! and a nice gradual cu
 Submitted batch job 11733932 at 9 epochs - 66%
 
 name=deepcoder_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.25 --use_dc_grammar 'dc_model.p'
-sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.25_1537327473486//deepcoder_holes.p' 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.25_1537327473486/deepcoder_holes.p' 
 Submitted batch job 11728651 - 72% at half trained
 Submitted batch job 11733933 - at 9 epochs 80%
 
 name=deepcoder_timeout_0.10 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --max_epochs 10 --load_pretrained_model_path '../deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p' --inv_temp 0.1 --use_dc_grammar 'dc_model.p'
 
 
-#TIMEOUT ON T4:
+
+#####TIMEOUT ON T4:
 name=deepcoder_T4_timeout_0.5 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.5 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
+prelim eval:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 15 --max_to_check 10000 --model_path 'experiments/deepcoder_T4_timeout_0.5_1537402236402/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11742352 
 
 name=deepcoder_T4_timeout_0.25 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.25 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
+prelim eval:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 15 --max_to_check 10000 --model_path 'experiments/deepcoder_T4_timeout_0.25_1537402389185/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11739911 - 14%
+
+increased n_samples:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_samples 60 --n_test 50 --dcModel --mdl 15 --max_to_check 10000 --model_path 'experiments/deepcoder_T4_timeout_0.25_1537402389185/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11742414 
 
 name=deepcoder_T4_timeout_0.1 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.1 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
+prelim eval:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 15 --max_to_check 10000 --model_path 'experiments/deepcoder_T4_timeout_0.1_1537402614870/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11742351 - 16%
+
+increased n_samples:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_samples 60 --n_test 50 --dcModel --mdl 15 --max_to_check 10000 --model_path 'experiments/deepcoder_T4_timeout_0.1_1537402614870/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11742413
+
+increased max and mdl:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_samples 60 --n_test 50 --dcModel --mdl 16 --max_to_check 30000 --model_path 'experiments/deepcoder_T4_timeout_0.1_1537402614870/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11744672 
+
+increased max:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_samples 60 --n_test 50 --dcModel --mdl 15 --max_to_check 30000 --model_path 'experiments/deepcoder_T4_timeout_0.1_1537402614870/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11746879
 
 name=deepcoder_T4_timeout_0.05 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --use_timeout --inv_temp 0.05 --max_epochs 1 --max_iterations 4000 --load_pretrained_model_path '../deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p' --use_dc_grammar '../deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p' --train_data 'data/DeepCoder_data/T4_A2_V512_L10_train_perm.txt'
+prelim eval:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 15 --max_to_check 10000 --model_path 'experiments/deepcoder_T4_timeout_0.05_1537402842504/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11742402
+
+#T4 deepcoder baseline
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 15 --max_to_check 10000 --dc_baseline --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11739877  sketches are often found after like 2k+ search .... 
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 16 --max_to_check 30000 --dc_baseline --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11744673
+
+
 
 ###ROBUSTFILL preliminary EVALUATION:
 sbatch execute_gpu.sh python evaluate_robustfill.py --pretrained --pretrained_model_path './experiments/rb_long_pretrain_1537123008935/robustfill_pretrained.p'
@@ -313,19 +348,180 @@ sbatch execute_gpu.sh python evaluate_robustfill.py --dcModel --model_path 'expe
 Submitted batch job 11717738
 results file saved at rb_results/prelim_results_wdcModel__test500_1537207687.p
 
-parser.add_argument('--pretrained', action='store_true')
-parser.add_argument('--pretrained_model_path', type=str, default="./robustfill_pretrained.p")
-parser.add_argument('--n_test', type=int, default=500)
-parser.add_argument('--dcModel', action='store_true')
-parser.add_argument('--dc_model_path', type=str, default="./robustfill_dc_model.p")
-parser.add_argument('--dc_baseline', action='store_true')
-parser.add_argument('--n_samples', type=int, default=30)
-parser.add_argument('--mdl', type=int, default=14)  #9
-parser.add_argument('--n_examples', type=int, default=4)
-parser.add_argument('--Vrange', type=int, default=25)
-parser.add_argument('--precomputed_data_file', type=str, default='rb_test_tasks.p')
-parser.add_argument('--model_path', type=str, default="./robustfill_holes.p")
-parser.add_argument('--max_to_check', type=int, default=5000)
+
+
+#######robustfill final evaluation:#########
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout1challenge' --precomputed_data_file 'rb_challenge_tasks.p' --dcModel --model_path 'experiments/rb_timeout_1.0_1537385508985/robustfill_holes.p_iter_4000.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750223 
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout.5challenge' --precomputed_data_file 'rb_challenge_tasks.p' --dcModel --model_path 'experiments/rb_timeout_0.5_1537385713113/robustfill_holes.p_iter_4000.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750224  
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout.25challenge' --precomputed_data_file 'rb_challenge_tasks.p' --dcModel --model_path 'experiments/rb_timeout_0.25_1537385744004/robustfill_holes.p_iter_4000.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750225   
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout.1challenge' --precomputed_data_file 'rb_challenge_tasks.p' --dcModel --model_path 'experiments/rb_timeout_0.10_1537401029301/robustfill_holes.p_iter_3600.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750226  
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_rnnbase_challenge' --precomputed_data_file 'rb_challenge_tasks.p' --pretrained --pretrained_model_path './experiments/rb_long_pretrain_1537123008935/robustfill_pretrained.p'
+Submitted batch job 11750227     
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_dc_base_challenge' --precomputed_data_file 'rb_challenge_tasks.p' --dcModel --dc_baseline --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750228  
+
+
+
+
+
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout1test' --precomputed_data_file 'rb_test_tasks.p' --dcModel --model_path 'experiments/rb_timeout_1.0_1537385508985/robustfill_holes.p_iter_4000.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750632
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout.5test' --precomputed_data_file 'rb_test_tasks.p' --dcModel --model_path 'experiments/rb_timeout_0.5_1537385713113/robustfill_holes.p_iter_4000.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750633 
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout.25test' --precomputed_data_file 'rb_test_tasks.p' --dcModel --model_path 'experiments/rb_timeout_0.25_1537385744004/robustfill_holes.p_iter_4000.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750634    
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_timeout.1test' --precomputed_data_file 'rb_test_tasks.p' --dcModel --model_path 'experiments/rb_timeout_0.10_1537401029301/robustfill_holes.p_iter_3600.p' --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750635 
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_rnnbase_test' --precomputed_data_file 'rb_test_tasks.p' --pretrained --pretrained_model_path './experiments/rb_long_pretrain_1537123008935/robustfill_pretrained.p'
+Submitted batch job 11750636
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --resultsfile 'rb_dc_base_test' --precomputed_data_file 'rb_test_tasks.p' --dcModel --dc_baseline --dc_model_path 'experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict' 
+Submitted batch job 11750637
+
+
+
+'experiments/deepcoder_timeout_0.5_1537326548865/deepcoder_holes.p' 
+
+'experiments/deepcoder_timeout_1.0_1537326582936/deepcoder_holes.p' 
+
+'experiments/deepcoder_timeout_0.25_1537327473486/deepcoder_holes.p' 
+
+'experiments/deepcoder_timeout_0.10_1537400900116/deepcoder_holes.p'
+
+
+######DC T3 final evaluation#####
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.1' --precomputed_data_file 'data/prelim_test_data.p' --n_test 500 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.10_1537400900116/deepcoder_holes.p'
+Submitted batch job 11751302 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.25' --precomputed_data_file 'data/prelim_test_data.p' --n_test 500 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.25_1537327473486/deepcoder_holes.p' 
+Submitted batch job 11751303 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.5' --precomputed_data_file 'data/prelim_test_data.p' --n_test 500 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_0.5_1537326548865/deepcoder_holes.p' 
+Submitted batch job 11751304  
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_1' --precomputed_data_file 'data/prelim_test_data.p' --n_test 500 --dcModel --mdl 14 --model_path 'experiments/deepcoder_timeout_1.0_1537326582936/deepcoder_holes.p'
+Submitted batch job 11751305 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_rl' --precomputed_data_file 'data/prelim_test_data.p' --n_test 500 --dcModel --mdl 14 --model_path 'experiments/deepcoder_rl_exp86_0.5_start_holes_0.0001_var_red_1536820812072/deepcoder_holes.p'
+Submitted batch job 11750364 
+#rnn baseline
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_rnn' --precomputed_data_file 'data/prelim_test_data.p' --n_test 500 --dcModel --mdl 14 --model_path 'experiments/deepcoder_long_rnn_base_1537308558965/deepcoder_rnn_base.p' 
+Submitted batch job 11750365 
+#dc baseline 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_dcbase' --dc_baseline --precomputed_data_file 'data/prelim_test_data.p' --n_test 500 --dcModel --mdl 14
+Submitted batch job 11750366
+
+
+
+###t3 very long eval###
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.1_long' --max_to_check 20000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_timeout_0.10_1537400900116/deepcoder_holes.p'
+Submitted batch job 11774744
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.25_long' --max_to_check 20000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_timeout_0.25_1537327473486/deepcoder_holes.p' 
+Submitted batch job 11774745
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.5_long' --max_to_check 20000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_timeout_0.5_1537326548865/deepcoder_holes.p' 
+ Submitted batch job 11774746
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_1_long' --max_to_check 20000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_timeout_1.0_1537326582936/deepcoder_holes.p'
+Submitted batch job 11774747
+#sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_rl_long' --max_to_check 20000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_rl_exp86_0.5_start_holes_0.0001_var_red_1536820812072/deepcoder_holes.p'
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_rnn_long' --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 14 --model_path 'experiments/deepcoder_long_rnn_base_1537308558965/deepcoder_rnn_base.p' 
+Submitted batch job 11774750
+
+#dc baseline 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_dcbase_long' --max_to_check 20000 --dc_baseline --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16
+submitted 11774748
+
+
+##########t3 100k run###########
+NEED TO RUN!!!
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.25_100k' --max_to_check 100000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_timeout_0.25_1537327473486/deepcoder_holes.p' 
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_0.5_100k' --max_to_check 100000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_timeout_0.5_1537326548865/deepcoder_holes.p' 
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_timeout_1_100k' --max_to_check 100000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_timeout_1.0_1537326582936/deepcoder_holes.p'
+
+#sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_rl_long' --max_to_check 20000 --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 16 --model_path 'experiments/deepcoder_rl_exp86_0.5_start_holes_0.0001_var_red_1536820812072/deepcoder_holes.p'
+
+#dc baseline 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_dcbase_100k' --max_to_check 100000 --dc_baseline --precomputed_data_file 'data/prelim_test_data.p' --n_test 100 --dcModel --mdl 18
+
+
+
+
+######DC T4 final eval########
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.5' --n_samples 100 --n_test 100 --dcModel --mdl 15 --max_to_check 40000 --model_path 'experiments/deepcoder_T4_timeout_0.5_1537402236402/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11770251 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.25' --n_samples 100 --n_test 100 --dcModel --mdl 15 --max_to_check 40000 --model_path 'experiments/deepcoder_T4_timeout_0.25_1537402389185/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11770252 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.1' --n_samples 100 --n_test 100 --dcModel --mdl 15 --max_to_check 40000 --model_path 'experiments/deepcoder_T4_timeout_0.1_1537402614870/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11770253 
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.05' --n_samples 100 --n_test 100 --dcModel --mdl 15 --max_to_check 40000 --model_path 'experiments/deepcoder_T4_timeout_0.05_1537402842504/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11770254 
+#deepcoder baseline
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_dc_base' --n_test 100 --dcModel --mdl 15 --max_to_check 40000 --dc_baseline --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11770255 
+#rnn baseline
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_rnn_base' --n_samples 100 --n_test 100 --dcModel --mdl 15 --max_to_check 40000 --dc_baseline --precomputed_data_file 'data/prelim_test_data_T5.p' 
+Submitted batch job 11770256
+NEED TO REDO!!!!!!
+
+
+#longer run, take 2:
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.5_100k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 100000 --model_path 'experiments/deepcoder_T4_timeout_0.5_1537402236402/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774737
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.25_100k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 100000 --model_path 'experiments/deepcoder_T4_timeout_0.25_1537402389185/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774738
+#deepcoder baseline
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_dc_base_100k' --n_test 100 --dcModel --mdl 16 --max_to_check 100000 --dc_baseline --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774739
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.1_100k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 100000 --model_path 'experiments/deepcoder_T4_timeout_0.1_1537402614870/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+ Submitted batch job 11774752
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.05_100k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 100000 --model_path 'experiments/deepcoder_T4_timeout_0.05_1537402842504/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774753
+
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_rnn_base_beam_100k' --beam --n_samples 100 --n_test 96 --dcModel --mdl 15 --max_to_check 200 --precomputed_data_file 'data/prelim_test_data_T5.p' --model_path 'experiments/deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p'
+REDOING!!!!!! remember its called 100k
+Submitted batch job 11788562
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.5_200k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 200000 --model_path 'experiments/deepcoder_T4_timeout_0.5_1537402236402/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774740
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.25_200k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 200000 --model_path 'experiments/deepcoder_T4_timeout_0.25_1537402389185/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774741
+
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.1_200k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 200000 --model_path 'experiments/deepcoder_T4_timeout_0.1_1537402614870/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774754
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.05_200k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 200000 --model_path 'experiments/deepcoder_T4_timeout_0.05_1537402842504/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774755
+
+#deepcoder baseline
+sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_dc_base_200k' --n_test 100 --dcModel --mdl 16 --max_to_check 200000 --dc_baseline --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
+Submitted batch job 11774742
+
+
+
+#finish this
+sbatch execute_gpu.sh python make_final_plots.py --filename 'dc_T3' --file_list  'results/dc_timeout_0.1.p' 'results/dc_timeout_0.25.p' 'results/dc_timeout_0.5.p' 'results/dc_timeout_1.p' 'results/dc_rl.p' 'results/dc_rnn.p' 'results/dc_dcbase.p'  --legend_list "Flexible_neural_sketch,_decay=0.1_(ours)" "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=0.5_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "Flexible_neural_sketch,_RL_training_(ours)" "RNN_baseline" "Deepcoder_baseline"
+
+#final good stuff 
+sbatch execute_gpu.sh python make_final_plots.py --filename 'dc_T3' --file_list 'results/dc_timeout_0.25.p' 'results/dc_timeout_0.5.p' 'results/dc_timeout_1.p' 'results/dc_rl.p' 'results/dc_rnn.p' 'results/dc_dcbase.p'  --legend_list "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=0.5_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "Flexible_neural_sketch,_RL_training_(ours)" "RNN_baseline" "Deepcoder_baseline"
+
+
+
+sbatch execute_gpu.sh python make_final_plots.py --robustfill --filename 'rb_challenge' --file_list 'rb_results/rb_timeout.1challenge.p' 'rb_results/rb_timeout.25challenge.p' 'rb_results/rb_timeout.5challenge.p' 'rb_results/rb_timeout1challenge.p' 'rb_results/rb_rnnbase_challenge.p' 'rb_results/rb_dc_base_challenge.p' --legend_list "Flexible_neural_sketch,_decay=0.1_(ours)" "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=0.5_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "RNN_baseline" "Deepcoder_baseline"
+
+sbatch execute_gpu.sh python make_final_plots.py --robustfill --filename 'rb_challenge' --file_list 'rb_results/rb_timeout.1challenge.p' 'rb_results/rb_timeout.25challenge.p' 'rb_results/rb_timeout1challenge.p' 'rb_results/rb_rnnbase_challenge.p' 'rb_results/rb_dc_base_challenge.p' --legend_list "Flexible_neural_sketch,_decay=0.1_(ours)" "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "RNN_baseline" "Deepcoder_baseline"
+
+
+sbatch execute_gpu.sh python make_final_plots.py --robustfill --filename 'rb_challenge100' --file_list 'rb_results/rb_timeout.1challenge100.p' 'rb_results/rb_timeout.25challenge100.p' 'rb_results/rb_timeout1challenge100.p' 'rb_results/rb_rnnbase_challenge100.p' 'rb_results/rb_dc_base_challenge.p' --legend_list "Flexible_neural_sketch,_decay=0.1_(ours)" "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "RNN_baseline" "Deepcoder_baseline"
+
+
+#generalization:
+
+sbatch execute_gpu.sh python make_final_plots.py --generalization --robustfill --filename 'rb_challenge_gen' --file_list 'rb_results/rb_timeout.1challenge.p' 'rb_results/rb_timeout.25challenge.p' 'rb_results/rb_timeout1challenge.p' 'rb_results/rb_rnnbase_challenge.p' 'rb_results/rb_dc_base_challenge.p' --legend_list "Flexible_neural_sketch,_decay=0.1_(ours)" "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "RNN_baseline" "Deepcoder_baseline"
+
+
+make_final_plots.py --filename 'dc_T4_prelim' --file_list 'results/dc_T4_0.5_100k.p' 'results/dc_T4_dc_base_100k.p'  --legend_list "Flexible_neural_sketch,_decay=0.5_(ours)" "Deepcoder_baseline"
 
 
 manipulate_results.py --basefile rb_results/prelim_results_rnn_baseline__test500_1537201590.p --resultsfile rb_results/prelim_results_wdcModel__test500_1537207687.p --rb --rnnbase
@@ -334,6 +530,27 @@ manipulate_results.py --basefile rb_results/prelim_results_dc_baseline__test500_
 
 
 #FINAL TRAINING:
+
+############USING BEAM SEARCH#########
+
+
+### beams on robustfill:
+
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --beam --n_samples 50 --resultsfile 'rb_rnnbase_challenge_beam_50' --precomputed_data_file 'rb_challenge_tasks.p' --pretrained --pretrained_model_path './experiments/rb_long_pretrain_1537123008935/robustfill_pretrained.p'
+Submitted batch job 11778585 - cancelled
+faster version: 11778619
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --beam --n_samples 100 --resultsfile 'rb_rnnbase_challenge_beam_100' --precomputed_data_file 'rb_challenge_tasks.p' --pretrained --pretrained_model_path './experiments/rb_long_pretrain_1537123008935/robustfill_pretrained.p'
+Submitted batch job 11778626
+sbatch execute_gpu.sh python evaluate_robustfill.py --test_generalization --beam --n_samples 150 --resultsfile 'rb_rnnbase_challenge_beam_150' --precomputed_data_file 'rb_challenge_tasks.p' --pretrained --pretrained_model_path './experiments/rb_long_pretrain_1537123008935/robustfill_pretrained.p'
+Submitted batch job 11778633
+
+
+
+
+sbatch execute_gpu.sh python make_final_plots.py --filename 'dc_T3_long' --file_list 'results/dc_timeout_0.25_long.p' 'results/dc_timeout_0.5_long.p' 'results/dc_timeout_1_long.p' 'results/dc_rnn_long.p' 'results/dc_dcbase_long.p'  --legend_list "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=0.5_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "RNN_baseline" "Deepcoder_baseline"
+
+
+
 
 ########
 DEEPCODER:
@@ -349,10 +566,10 @@ T3:
 	-[X] 0.5
 	-[ ] 0.25
 	NEW:
-	-[X] 1.0 --training (almost done)
-	-[X] 0.5 --training (almost done)
-	-[X] 0.25 --training (almost done)
-	-[X] 0.1 --training
+	-[X] 1.0 --done
+	-[X] 0.5 --done
+	-[X] 0.25 --done
+	-[X] 0.1 --done
 
 train 4, test 5  --optional (might be important to show superiority over very well trained rnn here)
 currently:
@@ -360,18 +577,28 @@ currently:
 -[X] training DCmodel 'dc_model_T4.p_0_iter_5400000.p' iter 5million looks reasonable ... may need a bigger network tho ...
 - 4x my model for comparison (decide which based on T3)
 	NEW: (use best version)
-	-[ ] 1.0 
 	-[ ] 0.5 --training
-	-[ ] 0.25
-	-[ ] 0.1
-
-- bottleneck: training regime ... is it okay to use it?? -- so far it looks very good!!!
-
+	-[ ] 0.25 --training
+	-[ ] 0.1 --training
+	-[ ] 0.05 --training
 
 TESTING:
 -[ ] long tests on actual data
 -[ ] varying number of samples
 -[ ] the samples vs enum budget frontier graph -- this could be nasty to do
+
+EVALUTATION
+
+for dc 3: 
+[ ] evaluate rnn baseline (vary sample num)
+[ ] evaluate rl model
+[ ] evalute dc baseline 
+[ ] evaluate sketch model 4x (vary sample num)
+
+for dc 5:
+[ ] evaluate rnn baseline (vary sample num)
+[ ] evalute dc baseline 
+[ ] evaluate best sketch model (vary sample num)
 
 
 
@@ -381,11 +608,9 @@ TRAINING:
 -[X] rnn baseline
 -[ ] a good RL model  maybe not worth --optional
 -[X] dc baseline
-- 3x my model for comparison (decide which based on T3)
+- 4x my model for comparison 
 	OLD: 
-	-[ ] 1.0
 	-[X] 0.5
-	-[ ] 0.25
 	NEW: (use best)
 	-[ ] 1.0 --training
 	-[ ] 0.5 --training
@@ -398,63 +623,10 @@ TESTING:
 -[ ] use the "real" sygis data to make the correctness graphs Armando wants
 -[ ] the samples vs enum budget graph
 
+[ ] evaluate rnn baseline (vary sample num)
+[ ] evalute dc baseline 
+[ ] evaluate sketch model 4x (vary sample num)
 
+--test_generalization flag can be used for sygis data testing, still need to write plotter to plot g_hit/hit as function of enum budget
 
-
-TODO: 
--[ ] decision on which types of models still to train
--[ ] evaluation: write all of the scripts up for eval and for plotting 
-	-[ ] for ease, make eval take a file path as input, so i dont have to look things up
-	-[ ] long general runs (DC and RB)
-	-[ ] real data graphs (RB)
-	-[ ] frontier graphs (DC + RB)?
-
-
-
-
-
-
-
-
-# - need
-# cd $regex_folder
-# sbatch gpu_execute.sh python regex_evaluate.py -- 'regex_model' + options 
-# regex_results_file = # TODO #put results file here
-	
-# #baseline evaluation
-# cd $regex_folder
-# sbatch gpu_execute.sh python regex_evaluate.py -- 'regex_model' + options + --baseline=true or something
-# regex_base_results_file = # TODO #put results file here
-
-# #graphing + manupulating results:
-# cd $regex_folder
-
-# and the same for DC
-
-# # ran 
-# name=deepcoder_rl_temp_0.5 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --inv_temp 0.5 --use_rl --variance_reduction --max_epochs 15
-# 'experiments/deepcoder_rl_temp_0.5_1536636279865'
-# name=deepcoder_rl_temp_1.0 g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --inv_temp 1 --use_rl --variance_reduction --max_epochs 15
-# 'experiments/deepcoder_rl_temp_1.0_1536636352841'
-
-# name=deepcoder_rl_temp_0.5_no_syntax g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --inv_temp 0.5 --use_rl --variance_reduction --max_epochs 15 --rl_no_syntax
-# 'experiments/deepcoder_rl_temp_0.5_no_syntax_1536636487228'
-# name=deepcoder_rl_temp_1.0_no_syntax g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --inv_temp 1 --use_rl --variance_reduction --max_epochs 15 --rl_no_syntax
-# 'experiments/deepcoder_rl_temp_1.0_no_syntax_1536636518271'
-
-
-# name=deepcoder_rl_temp_0.5_boost_obj g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --inv_temp 0.5 --use_rl --variance_reduction --max_epochs 15
-# 'experiments/deepcoder_rl_temp_0.5_boost_obj_1536638299528'
-# name=deepcoder_rl_temp_1.0_boost_obj  g-run sbatch execute_gpu.sh python main_supervised_deepcoder.py --inv_temp 1 --use_rl --variance_reduction --max_epochs 15
-# 'experiments/deepcoder_rl_temp_1.0_boost_obj_1536638330476'
-
-# # how was it evaluated? - may need to reeval everything
-#python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 10 --model_path 'experiments/deepcoder_temp_0.5_1536186291153/deepcoder_holes.p'                                      
-
-# python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 10 --model_path 'experiments/deepcoder_rl_temp_0.5_1536636279865/deepcoder_holes.p'
-# python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 10 --model_path 'experiments/deepcoder_rl_temp_1.0_1536636352841/deepcoder_holes.p'
-# python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 10 --model_path 'experiments/deepcoder_rl_temp_0.5_no_syntax_1536636487228/deepcoder_holes.p'
-# python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 10 --model_path 'experiments/deepcoder_rl_temp_1.0_no_syntax_1536636518271/deepcoder_holes.p'
-# python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 10 --model_path 'experiments/deepcoder_rl_temp_0.5_boost_obj_1536638299528/deepcoder_holes.p'
-# python evaluate_deepcoder.py --n_test 50 --dcModel --mdl 10 --model_path 'experiments/deepcoder_rl_temp_1.0_boost_obj_1536638330476/deepcoder_holes.p'
 

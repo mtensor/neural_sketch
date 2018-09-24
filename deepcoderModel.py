@@ -6,6 +6,7 @@ import torch.optim as optimization
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 import numpy as np
+import random
 
 
 import sys
