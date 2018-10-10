@@ -480,10 +480,10 @@ sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.05_100
 Submitted batch job 11774753
 
 
-sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_rnn_base_beam_100k' --beam --n_samples 100 --n_test 96 --dcModel --mdl 15 --max_to_check 200 --precomputed_data_file 'data/prelim_test_data_T5.p' --model_path 'experiments/deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p'
+sbatch execute_gf_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_rnn_base_beam_100k' --beam --n_samples 100 --n_test 96 --dcModel --mdl 15 --max_to_check 200 --precomputed_data_file 'data/prelim_test_data_T5.p' --model_path 'experiments/deepcoder_pretrained_T4_1537310448749/deepcoder_pretrained_T4.p_0_iter_4000.p'
 REDOING!!!!!! remember its called 100k
-Submitted batch job 11788562
-
+Submitted batch job 11788562 - cancelled
+Submitted batch job 11789865
 sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.5_200k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 200000 --model_path 'experiments/deepcoder_T4_timeout_0.5_1537402236402/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
 Submitted batch job 11774740
 sbatch execute_gpu.sh python evaluate_deepcoder.py --resultsfile 'dc_T4_0.25_200k' --n_samples 100 --n_test 96 --dcModel --mdl 16 --max_to_check 200000 --model_path 'experiments/deepcoder_T4_timeout_0.25_1537402389185/deepcoder_holes.p' --precomputed_data_file 'data/prelim_test_data_T5.p' --dcModel_path 'experiments/deepcoder_dcModel_T4_1537310497320/dc_model_T4.p_0_iter_5400000.p'
@@ -521,7 +521,7 @@ sbatch execute_gpu.sh python make_final_plots.py --robustfill --filename 'rb_cha
 sbatch execute_gpu.sh python make_final_plots.py --generalization --robustfill --filename 'rb_challenge_gen' --file_list 'rb_results/rb_timeout.1challenge.p' 'rb_results/rb_timeout.25challenge.p' 'rb_results/rb_timeout1challenge.p' 'rb_results/rb_rnnbase_challenge.p' 'rb_results/rb_dc_base_challenge.p' --legend_list "Flexible_neural_sketch,_decay=0.1_(ours)" "Flexible_neural_sketch,_decay=0.25_(ours)" "Flexible_neural_sketch,_decay=1_(ours)" "RNN_baseline" "Deepcoder_baseline"
 
 
-make_final_plots.py --filename 'dc_T4_prelim' --file_list 'results/dc_T4_0.5_100k.p' 'results/dc_T4_dc_base_100k.p'  --legend_list "Flexible_neural_sketch,_decay=0.5_(ours)" "Deepcoder_baseline"
+make_final_plots.py --filename 'dc_T4_w_rnn' --file_list 'results/dc_T4_0.5_100k.p' 'results/dc_T4_dc_base_100k.p' 'results/dc_T4_rnn_base_beam_100k.p'  --legend_list "Flexible_neural_sketch,_decay=0.5_(ours)" "Deepcoder_baseline" "RNN_baseline"
 
 
 manipulate_results.py --basefile rb_results/prelim_results_rnn_baseline__test500_1537201590.p --resultsfile rb_results/prelim_results_wdcModel__test500_1537207687.p --rb --rnnbase
