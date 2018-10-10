@@ -16,12 +16,15 @@ from makeRobustFillData import batchloader, Datum
 from manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
 from deepcoderModel import load_rb_dc_model_from_path, LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor
 
+from rb_pypy_util import RobustFillResult, rb_pypy_enumerate
+
+from pypy_util import alternate
 
 # TODO
 import sys
 sys.path.append("/om/user/mnye/ec")
 from program import ParseFailure, Context
-from grammar import NoCandidates
+from grammar import NoCandidates, Grammar
 
 from itertools import islice, zip_longest
 from functools import reduce
@@ -43,7 +46,7 @@ parser.add_argument('--dcModel', action='store_true')
 parser.add_argument('--dc_model_path', type=str, default="./robustfill_dc_model.p")
 parser.add_argument('--dc_baseline', action='store_true')
 parser.add_argument('--n_samples', type=int, default=30)
-parser.add_argument('--mdl', type=int, default=14)  #9
+parser.add_argument('--mdl', type=int, default=17)  #9
 parser.add_argument('--n_rec_examples', type=int, default=4)
 parser.add_argument('--max_length', type=int, default=25)
 parser.add_argument('--max_index', type=int, default=4)
@@ -61,22 +64,11 @@ n_rec_examples = args.n_rec_examples
 
 max_to_check = args.max_to_check
 
-RobustFillResult = namedtuple("RobustFillResult", ["sketch", "prog", "hit", "n_checked", "time", "g_hit"]) 
 
-def alternate(*args):
-	# note: python 2 - use izip_longest
-	for iterable in zip_longest(*args):
-		for item in iterable:
-			if item is not None:
-				yield item
-
-def test_program_on_IO(e, IO, generalization=False):
-	examples = IO if generalization else IO[:n_rec_examples]
-	try: 
-		x = all(e(x)==y for x, y in examples)  #TODO: check that this makes sense
-	except IndexError:
-		x = False
-	return x
+def untorch(g):
+	return Grammar(g.logVariable.data.tolist()[0], 
+                               [ (l.data.tolist()[0], t, p)
+                                 for l, t, p in g.productions])
 
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	t = time.time()
@@ -108,20 +100,9 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	print(len(sketches))
 	print(sketches)
 	#alternate which sketch to enumerate from each time
-	for sk, x in alternate(*(((sk, x) for x in g.sketchEnumeration(Context.EMPTY, [], datum.tp, sk, mdl)) for sk in sketches)):
-		_, _, p = x
-		e = p.evaluate([])
-		try:
-			hit = test_program_on_IO(e, datum.IO)
-		except: hit = False
-		prog = e if hit else None
-		n_checked += 1
-		n_hit += 1 if hit else 0
-		#testing generalization
-		gen_hit = test_program_on_IO(e, datum.IO, generalization=True) if args.test_generalization else False
-		yield RobustFillResult(sk, prog, hit, n_checked, time.time()-t, gen_hit)
-		if hit: break
-		if n_checked >= max_to_check: break
+	results, n_checked, n_hit = rb_pypy_enumerate(untorch(g), datum.tp, datum.IO, mdl, sketches, n_checked, n_hit, t, max_to_check, args.test_generalization, n_rec_examples)
+	yield from (result for result in results)
+
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
 	print(f"evaluation for task {i} took {time.time()-t} seconds")

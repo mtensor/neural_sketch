@@ -1,11 +1,11 @@
 #!/bin/sh
 
 #SBATCH --qos=tenenbaum
-#SBATCH --time=3000
-#SBATCH --mem=100G
+#SBATCH --time=2000
+#SBATCH --mem=30G
 #SBATCH --job-name=neural_sketch
 #SBATCH --cpus-per-task=1
-#SBATCH --gres=gpu:titan-x:1
+#SBATCH --gres=gpu:1
 
 
 #export PATH=/om/user/mnye/miniconda3/bin/:$PATH

@@ -1,7 +1,7 @@
 # evaluate.py
 # import statements
 import argparse
-from collections import namedtuple
+
 import torch
 from torch import nn, optim
 from pinn import RobustFill
@@ -15,15 +15,17 @@ from deepcoder_util import parseprogram, tokenize_for_robustfill
 from makeDeepcoderData import batchloader
 from manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
 
+from pypy_util import DeepcoderResult, alternate, pypy_enumerate
+
 # TODO
 import sys
 sys.path.append("/om/user/mnye/ec")
 from program import ParseFailure, Context
-from grammar import NoCandidates
-from utilities import timing
+from grammar import NoCandidates, Grammar
+from utilities import timing, callCompiled
 
 from itertools import islice, zip_longest
-from functools import reduce
+
 
 """ rough schematic of what needs to be done:
 1) Evaluate NN on test inputs
@@ -58,17 +60,10 @@ nExamples = args.n_examples
 Vrange = args.Vrange
 max_to_check = args.max_to_check
 
-DeepcoderResult = namedtuple("DeepcoderResult", ["sketch", "prog", "hit", "n_checked", "time"])
-
-def alternate(*args):
-	# note: python 2 - use izip_longest
-	for iterable in zip_longest(*args):
-		for item in iterable:
-			if item is not None:
-				yield item
-
-def test_program_on_IO(e, IO):
-	return all(reduce(lambda a, b: a(b), xs, e)==y for xs, y in IO)
+def untorch(g):
+	return Grammar(g.logVariable.data.tolist()[0], 
+                               [ (l.data.tolist()[0], t, p)
+                                 for l, t, p in g.productions])
 
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	t = time.time()
@@ -99,16 +94,10 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	print(len(sketches))
 	print(sketches)
 	#alternate which sketch to enumerate from each time
-	for sk, x in alternate(*(((sk, x) for x in g.sketchEnumeration(Context.EMPTY, [], datum.tp, sk, mdl)) for sk in sketches)):
-		_, _, p = x
-		e = p.evaluate([])
-		hit = test_program_on_IO(e, datum.IO)
-		prog = e if hit else None
-		n_checked += 1
-		n_hit += 1 if hit else 0
-		yield DeepcoderResult(sk, prog, hit, n_checked, time.time()-t)
-		if hit: break
-		if n_checked >= max_to_check: break
+
+	results, n_checked, n_hit = pypy_enumerate(untorch(g), datum.tp, datum.IO, mdl, sketches, n_checked, n_hit, t, max_to_check)
+	yield from (result for result in results)
+
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
 	print(f"evaluation for task {i} took {time.time()-t} seconds")
