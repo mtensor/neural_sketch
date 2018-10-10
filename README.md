@@ -1,11 +1,21 @@
 #NEURAL SKETCH PROJECT
 
+Basic idea:
+A user should only have to go into the `train` folder, the `eval` folder, and the `plot` folder.
+`train` and `eval` folders have train and eval scripts for each domain.
+Currently only robustfill and deepcoder are working.
+
+
 the `train` folder is where the training scripts are. You should run from the top level directory, with the `--pretrain` flag, the first time you run. ex:
 ```
-anaconda-project main_supervised_deepcoder.py --pretrain
+anaconda-project run python main_supervised_deepcoder.py --pretrain
 ```
+On openmind, I usually do the following:
+```
+sbatch execute_gpu.sh python main_supervised_deepcoder.py --pretrain
+```
+(no `anaconda-project` needed with `execute_gpu.sh`)
 
-Basic idea:
 
 
 #THINGS TO NOTE
