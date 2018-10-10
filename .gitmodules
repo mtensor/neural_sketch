@@ -7,3 +7,6 @@
 [submodule "vhe"]
 	path = vhe
 	url = git@github.com:insperatum/vhe.git
+[submodule "ec"]
+	path = ec
+	url = git@github.com:ellisk42/ec.git
