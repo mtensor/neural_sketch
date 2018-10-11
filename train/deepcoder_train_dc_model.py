@@ -28,7 +28,7 @@ from deepcoderPrimitives import deepcoderProductions, flatten_program
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from util.deepcoder_util import parseprogram, grammar
-from util.makeDeepcoderData import batchloader
+from data_src.makeDeepcoderData import batchloader
 from models.deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel
 
 #   from deepcoderModel import 
