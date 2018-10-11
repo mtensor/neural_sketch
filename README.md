@@ -1,6 +1,6 @@
-NEURAL SKETCH PROJECT
+# NEURAL SKETCH PROJECT
 
-Basic idea:
+## Basic idea:
 A user should only have to go into the `train` folder, the `eval` folder, and the `plot` folder.
 `train` and `eval` folders have train and eval scripts for each domain.
 Currently only robustfill and deepcoder are working.
@@ -18,12 +18,12 @@ sbatch execute_gpu.sh python main_supervised_deepcoder.py --pretrain
 
 
 
-THINGS TO NOTE
+## THINGS TO NOTE
 - for various reasons, the `ec` subdir had to be added to path, so if you are looking at an import statement and don't see the folder in the top level, it's inside `ec/`
 - the util directory is a mess. I will clean it
 - the naming convention around "deepcoder" and "robustfill" is bad ... sorry ...
 
-OCTOBER CLEAN UP
+## OCTOBER CLEAN UP
 - [X] switch to hierarchical file structure
 - [X] add EC as submodule or something
 - [ ] fix 'alternate' bug in evaluate code
@@ -38,6 +38,7 @@ OCTOBER CLEAN UP
 - [ ] make sure pypy stuff still works
 - [ ] make sure saved models work
 - [ ] figure out what needs to be abstracted, and abstract
+- [ ] run dc with smaller train 4 split
 
 folders to comb through for hierarchical struct:
 - [X] train
@@ -47,4 +48,3 @@ folders to comb through for hierarchical struct:
 - [X] models
 - [X] plot
 - [X] utils
-- [ ] run dc with smaller train 4 split
