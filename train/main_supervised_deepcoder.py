@@ -68,9 +68,9 @@ parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--train_data', nargs='*', 
     default=['data/DeepCoder_data/T2_A2_V512_L10_train.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'])
 # save and load files
-parser.add_argument('--load_pretrained_model_path', type=str, default=".saved_models/deepcoder_pretrained.p")
-parser.add_argument('--save_pretrained_model_path', type=str, default=".saved_models/deepcoder_pretrained.p")
-parser.add_argument('--save_model_path', type=str, default=".saved_model/deepcoder_holes.p")
+parser.add_argument('--load_pretrained_model_path', type=str, default="./saved_models/deepcoder_pretrained.p")
+parser.add_argument('--save_pretrained_model_path', type=str, default="./saved_models/deepcoder_pretrained.p")
+parser.add_argument('--save_model_path', type=str, default="./saved_models/deepcoder_holes.p")
 parser.add_argument('--save_freq', type=int, default=200)
 parser.add_argument('--print_freq', type=int, default=1)
 parser.add_argument('--top_k_sketches', type=int, default=100)
