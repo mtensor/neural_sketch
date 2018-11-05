@@ -10,3 +10,6 @@
 [submodule "ec"]
 	path = ec
 	url = git@github.com:ellisk42/ec.git
+[submodule "program_synthesis"]
+	path = program_synthesis
+	url = git@github.com:mtensor/program_synthesis.git
