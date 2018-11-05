@@ -31,7 +31,7 @@ from utilities import timing
 from models.deepcoderModel import LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor, load_rb_dc_model_from_path
 from data_src.makeRobustFillData import batchloader
 import math
-from util.robustfill_util import parseprogram, tokenize_for_robustfill, robustfill_vocab
+from util.robustfill_util import tokenize_for_robustfill, robustfill_vocab
 from itertools import chain
 from string import printable
 

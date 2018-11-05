@@ -17,7 +17,7 @@ import dill
 import pickle
 from util.deepcoder_util import grammar as basegrammar
 from util.deepcoder_util import parseprogram, tokenize_for_robustfill
-from data.makeDeepcoderData import batchloader
+from data_src.makeDeepcoderData import batchloader
 from plot.manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
 
 from util.pypy_util import DeepcoderResult, alternate, pypy_enumerate
@@ -65,7 +65,10 @@ Vrange = args.Vrange
 max_to_check = args.max_to_check
 
 def untorch(g):
-	return Grammar(g.logVariable.data.tolist()[0], 
+	if type(g.logVariable) == float:
+		return g
+	else:
+		return Grammar(g.logVariable.data.tolist()[0], 
                                [ (l.data.tolist()[0], t, p)
                                  for l, t, p in g.productions])
 
@@ -114,30 +117,12 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check)) for i, datum in enumerate(dataset)}
 
 #TODO: refactor for strings
-def save_results(results, args):
-	timestr = str(int(time.time()))
-	r = '_test' + str(args.n_test) + '_'
-	if args.resultsfile != 'NA':
-		filename = 'results/' + args.resultsfile + '.p'
-	elif args.dc_baseline:
-		filename = "results/prelim_results_dc_baseline_" + r + timestr + '.p'
-	elif args.pretrained:
-		filename = "results/prelim_results_rnn_baseline_" + r + timestr + '.p'
-	else:
-		dc = 'wdcModel_' if args.dcModel else ''
-		filename = "results/prelim_results_" + dc + r + timestr + '.p'
-	with open(filename, 'wb') as savefile:
-		dill.dump(results, savefile)
-		print("results file saved at", filename)
-	return savefile
+
 
 
 if __name__=='__main__':
 	#load the model
-	if args.pretrained:
-		print("loading pretrained_model")
-		model = torch.load("./deepcoder_pretrained.p")
-	elif args.dc_baseline:
+	if args.dc_baseline:
 		print("computing dc baseline, no model")
 		assert args.dcModel
 		model = None
@@ -161,6 +146,7 @@ if __name__=='__main__':
 
 	print("data file:", args.precomputed_data_file)
 	with open(args.precomputed_data_file, 'rb') as datafile:
+		#import data_src.makeDeepcoderData as makeDeepcoderData
 		dataset = pickle.load(datafile)
 	# optional:
 

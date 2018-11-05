@@ -3,6 +3,7 @@ import sys
 import os
 sys.path.append(os.path.abspath('./'))
 sys.path.append(os.path.abspath('./ec'))
+
 #import statements
 import argparse
 import torch
@@ -35,7 +36,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--n_test', type=int, default=500)
 parser.add_argument('--dcModel', action='store_true')
 parser.add_argument('--dcModel_path',type=str, default="./saved_models/dc_model.p")
-parser.add_argument('--holeSpecificDcModel', action='store_true')
+parser.add_argument('--improved_dc_grammar', action='store_true')
 parser.add_argument('--dc_baseline', action='store_true')
 parser.add_argument('--n_samples', type=int, default=30)
 parser.add_argument('--mdl', type=int, default=14)  #9
@@ -52,11 +53,9 @@ nSamples = args.n_samples
 mdl = args.mdl
 nExamples = args.n_examples
 max_to_check = args.max_to_check
-holeSpecificDcModel = args.holeSpecificDcModel
-if holeSpecificDcModel: assert args.dcModel
+improved_dc_grammar = args.improved_dc_grammar
+if improved_dc_grammar: assert args.dcModel
 
-
-lookup_d = {PregHole:PregHole()}
 
 def untorch(g):
 	if type(g.logVariable) == float:
@@ -68,37 +67,37 @@ def untorch(g):
 
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	t = time.time()
-	samples = {(PregHole,)}  # make more general #  TODO, i don't think 
+	samples = {('<HOLE>',)}  # make more general #  TODO, i don't think 
 	n_checked, n_hit = 0, 0
 	if model:
 		if args.beam:
-			samples, _scores = model.beam_decode([datum.IO[:nExamples]], beam_size=nRepeats)
+			samples, _scores = model.beam_decode([datum.spec], beam_size=nRepeats)
 		else:
-			samples, _scores, _ = model.sampleAndScore([datum.IO[:nExamples]], nRepeats=nRepeats)
+			samples, _scores, _ = model.sampleAndScore([datum.spec], nRepeats=nRepeats)
 		# only loop over unique samples:
 		samples = {tuple(sample) for sample in samples}  # only 
-	if (not holeSpecificDcModel) or (not dcModel):
-		g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO[:nExamples])  # TODO pp
+	if (not improved_dc_grammar) or (not dcModel):
+		g = basegrammar if not dcModel else dcModel.infer_grammar(datum.spec)  # TODO pp
 		g = untorch(g)
 	sketchtups = []
 	for sample in samples:
 		try:
-			sk = pre_to_prog(pre.create(sample, lookup=lookup_d))
+			sk = tree_to_prog(seq_to_tree(sample))
 
-			if holeSpecificDcModel:
-				g = untorch(dcModel.infer_grammar((datum.IO[:nExamples], sample))) #TODO: make sure this line is correct ..
+			if improved_dc_grammar:
+				g = untorch(dcModel.infer_grammar((datum.spec, sample))) #TODO: make sure this line is correct ..
 			
 			sketchtups.append(SketchTup(sk, g))
 
 		except ParseException:
 			n_checked += 1
-			yield (RegexResult(sample, None, float('-inf'), n_checked, time.time()-t), float('-inf'))
+			yield (RegexResult(sample, None, False, n_checked, time.time()-t))
 			continue
 	# only loop over unique sketches:
 	sketchtups = {sk for sk in sketchtups} #fine
 	#alternate which sketch to enumerate from each time
 
-	results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
+	results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check) #should deal with IO
 	yield from (result for result in results)
 
 	######TODO: want search time and total time to hit task ######
@@ -144,8 +143,7 @@ if __name__=='__main__':
 	else: dcModel = None
 
 	###load the test dataset###
-	dataset = date_data(20, nExamples=nExamples)
-	print("loaded data")
+	dataset = load_dataset()#TODO dataset
 
 	if args.shuffled:
 		random.seed(42)
@@ -170,8 +168,5 @@ if __name__=='__main__':
 	#doesn't really need a full function ... 
 	file = save_results(results, args)
 
-	####cool graphic#####
-	for sketch, prog, ll, task in results['task_tuples']:
-		print(task, "-->", sketch, "-->", prog, "with ll", ll)
 
 

@@ -22,7 +22,7 @@ def alternate(*args):
 				yield item
 
 
-def dc_enumerate(g, tp, IO, mdl, sketches, n_checked, n_hit, t, max_to_check):
+def algolisp_enumerate(g, tp, IO, mdl, sketches, n_checked, n_hit, t, max_to_check):
 	results = []
 	for sk, x in alternate(*(((sk, x) for x in g.sketchEnumeration(Context.EMPTY, [], tp, sk, mdl)) for sk in sketches)):
 		_, _, p = x
@@ -39,4 +39,4 @@ def dc_enumerate(g, tp, IO, mdl, sketches, n_checked, n_hit, t, max_to_check):
 
 
 def pypy_enumerate(g, tp, IO, mdl, sketches, n_checked, n_hit, t, max_to_check):
-	return callCompiled(dc_enumerate, g, tp, IO, mdl, sketches, n_checked, n_hit, t, max_to_check)
+	return callCompiled(algolisp_enumerate, g, tp, IO, mdl, sketches, n_checked, n_hit, t, max_to_check)

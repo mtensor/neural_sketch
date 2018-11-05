@@ -21,8 +21,6 @@ import time
 from collections import OrderedDict
 #from util import enumerate_reg, Hole
 
-
-
 from grammar import Grammar, NoCandidates
 from deepcoderPrimitives import deepcoderProductions, flatten_program
 
@@ -232,134 +230,134 @@ def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0, reward_fn=None, samp
 
 
 
-####unused####
-def sample_request(): #TODO
-    requests = [
-            arrow(tlist(tint), tlist(tint)),
-            arrow(tlist(tint), tint),
-            #arrow(tint, tlist(tint)),
-            arrow(tint, tint)
-            ]
-    return random.choices(requests, weights=[4,3,1])[0] #TODO
+# ####unused####
+# def sample_request(): #TODO
+#     requests = [
+#             arrow(tlist(tint), tlist(tint)),
+#             arrow(tlist(tint), tint),
+#             #arrow(tint, tlist(tint)),
+#             arrow(tint, tint)
+#             ]
+#     return random.choices(requests, weights=[4,3,1])[0] #TODO
 
-def isListFunction(tp):
-    try:
-        Context().unify(tp, arrow(tlist(tint), tint)) #TODO, idk if this will work
-        return True
-    except UnificationFailure:
-        try:
-            Context().unify(tp, arrow(tlist(tint), tlist(tint))) #TODO, idk if this will work
-            return True
-        except UnificationFailure:
-            return False
-
-
-def isIntFunction(tp):
-    try:
-        Context().unify(tp, arrow(tint, tint)) #TODO, idk if this will work
-        return True
-    except UnificationFailure:
-        try:
-            Context().unify(tp, arrow(tint, tlist(tint))) #TODO, idk if this will work
-            return True
-        except UnificationFailure:
-            return False
-
-def sampleIO(program, tp, k_shot=4, verbose=False): #TODO
-    #needs to have constraint stuff
-    N_EXAMPLES = 5
-    RANGE = 30 #TODO
-    LIST_LEN_RANGE = 8
-    OUTPUT_RANGE = 128
-
-    #stolen from Luke. Should be abstracted in a class of some sort.
-    def _featuresOfProgram(program, tp, k_shot=4):
-        e = program.evaluate([])
-        examples = []
-        if isListFunction(tp):
-            sample = lambda: random.sample(range(-RANGE, RANGE), random.randint(0, LIST_LEN_RANGE))
-        elif isIntFunction(tp):
-            sample = lambda: random.randint(-RANGE, RANGE-1)
-        else:
-            return None
-        for _ in range(N_EXAMPLES*3):
-            x = sample()
-            #try:
-            #print("program", program, "e", e, "x", x)
-            y = e(x)
-            #eprint(tp, program, x, y)
-
-            if x == [] or y == []: 
-                if verbose: print("tripped empty list continue ")
-                continue   
-
-            if type(y) == int:
-                y = [y] #TODO fix this dumb hack ...    
-            if type(x) == int:
-                x = [x] #TODO fix this dumb hack ...
-
-            if any((num >= OUTPUT_RANGE) or (num < -OUTPUT_RANGE) for num in y): #this is a total hack
-                if verbose: print("tripped range continue", flush=True)
-                continue
-
-            examples.append( (x, y) )
+# def isListFunction(tp):
+#     try:
+#         Context().unify(tp, arrow(tlist(tint), tint)) #TODO, idk if this will work
+#         return True
+#     except UnificationFailure:
+#         try:
+#             Context().unify(tp, arrow(tlist(tint), tlist(tint))) #TODO, idk if this will work
+#             return True
+#         except UnificationFailure:
+#             return False
 
 
-            # except:
-            #     print("tripped continue 2", flush=True)
-            #     continue
+# def isIntFunction(tp):
+#     try:
+#         Context().unify(tp, arrow(tint, tint)) #TODO, idk if this will work
+#         return True
+#     except UnificationFailure:
+#         try:
+#             Context().unify(tp, arrow(tint, tlist(tint))) #TODO, idk if this will work
+#             return True
+#         except UnificationFailure:
+#             return False
 
-            if len(examples) >= k_shot: break
-        else:
-            return None #What do I do if I get a None?? Try another program ...
-        return examples
+# def sampleIO(program, tp, k_shot=4, verbose=False): #TODO
+#     #needs to have constraint stuff
+#     N_EXAMPLES = 5
+#     RANGE = 30 #TODO
+#     LIST_LEN_RANGE = 8
+#     OUTPUT_RANGE = 128
 
-    return _featuresOfProgram(program, tp, k_shot=k_shot)
+#     #stolen from Luke. Should be abstracted in a class of some sort.
+#     def _featuresOfProgram(program, tp, k_shot=4):
+#         e = program.evaluate([])
+#         examples = []
+#         if isListFunction(tp):
+#             sample = lambda: random.sample(range(-RANGE, RANGE), random.randint(0, LIST_LEN_RANGE))
+#         elif isIntFunction(tp):
+#             sample = lambda: random.randint(-RANGE, RANGE-1)
+#         else:
+#             return None
+#         for _ in range(N_EXAMPLES*3):
+#             x = sample()
+#             #try:
+#             #print("program", program, "e", e, "x", x)
+#             y = e(x)
+#             #eprint(tp, program, x, y)
 
-def getInstance(k_shot=4, max_length=30, verbose=False, with_holes=False, k=None):
-    """
-    Returns a single problem instance, as input/target strings
-    """
-    #TODO
-    assert False, "this function has been depricated"
-    while True:
-        #request = arrow(tlist(tint), tint, tint)
-        #print("starting getIntance loop")
-        request = sample_request()
-        #print("request", request)
-        p = grammar.sample(request, maximumDepth=4) #grammar not abstracted well in this script
-        #print("program:", p)
+#             if x == [] or y == []: 
+#                 if verbose: print("tripped empty list continue ")
+#                 continue   
+
+#             if type(y) == int:
+#                 y = [y] #TODO fix this dumb hack ...    
+#             if type(x) == int:
+#                 x = [x] #TODO fix this dumb hack ...
+
+#             if any((num >= OUTPUT_RANGE) or (num < -OUTPUT_RANGE) for num in y): #this is a total hack
+#                 if verbose: print("tripped range continue", flush=True)
+#                 continue
+
+#             examples.append( (x, y) )
+
+
+#             # except:
+#             #     print("tripped continue 2", flush=True)
+#             #     continue
+
+#             if len(examples) >= k_shot: break
+#         else:
+#             return None #What do I do if I get a None?? Try another program ...
+#         return examples
+
+#     return _featuresOfProgram(program, tp, k_shot=k_shot)
+
+# def getInstance(k_shot=4, max_length=30, verbose=False, with_holes=False, k=None):
+#     """
+#     Returns a single problem instance, as input/target strings
+#     """
+#     #TODO
+#     assert False, "this function has been depricated"
+#     while True:
+#         #request = arrow(tlist(tint), tint, tint)
+#         #print("starting getIntance loop")
+#         request = sample_request()
+#         #print("request", request)
+#         p = grammar.sample(request, maximumDepth=4) #grammar not abstracted well in this script
+#         #print("program:", p)
         
-        IO = sampleIO(p, request, k_shot, verbose=verbose)
-        if IO == None: #TODO, this is a hack!!!
-            if verbose: print("tripped IO==None continue")
-            continue
-        if any(y==None for x,y in IO):
-            if verbose: print("tripped y==None continue")
-            assert False
-            continue
+#         IO = sampleIO(p, request, k_shot, verbose=verbose)
+#         if IO == None: #TODO, this is a hack!!!
+#             if verbose: print("tripped IO==None continue")
+#             continue
+#         if any(y==None for x,y in IO):
+#             if verbose: print("tripped y==None continue")
+#             assert False
+#             continue
 
-        pseq = flatten_program(p)
+#         pseq = flatten_program(p)
         
 
-        if all(len(x)<max_length and len(y)<max_length for x, y in IO): 
-            d = {'IO':IO, 'pseq':pseq, 'p':p, 'tp': request}
-            if with_holes:
-                d['sketch'] = make_holey_deepcoder(p, k, grammar, request)
-                d['sketchseq'] = flatten_program(d['sketch'])
-            break
-        if verbose: print("retry sampling program")
-    return d
+#         if all(len(x)<max_length and len(y)<max_length for x, y in IO): 
+#             d = {'IO':IO, 'pseq':pseq, 'p':p, 'tp': request}
+#             if with_holes:
+#                 d['sketch'] = make_holey_deepcoder(p, k, grammar, request)
+#                 d['sketchseq'] = flatten_program(d['sketch'])
+#             break
+#         if verbose: print("retry sampling program")
+#     return d
 
-def getBatch():
-    """
-    Create a batch of problem instances, as tensors
-    """
-    k_shot = random.choice(range(3,6)) #this means from 3 to 5 examples
+# def getBatch():
+#     """
+#     Create a batch of problem instances, as tensors
+#     """
+#     k_shot = random.choice(range(3,6)) #this means from 3 to 5 examples
 
-    instances = [getInstance(k_shot=k_shot, max_length=max_length) for i in range(batch_size)]
-    IO = [inst['IO'] for inst in instances]
-    p = [inst['p'] for inst in instances]
-    pseq = [inst['pseq'] for inst in instances]
-    tp = [inst['tp'] for inst in instances]
-    return IO, pseq, p, tp
+#     instances = [getInstance(k_shot=k_shot, max_length=max_length) for i in range(batch_size)]
+#     IO = [inst['IO'] for inst in instances]
+#     p = [inst['p'] for inst in instances]
+#     pseq = [inst['pseq'] for inst in instances]
+#     tp = [inst['tp'] for inst in instances]
+#     return IO, pseq, p, tp
