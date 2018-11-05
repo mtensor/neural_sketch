@@ -1,5 +1,8 @@
 #deepcodermodel
-
+import sys
+import os
+sys.path.append(os.path.abspath('./'))
+sys.path.append(os.path.abspath('./ec'))
 
 import torch
 import torch.nn as nn
@@ -16,6 +19,9 @@ from grammar import Grammar  #?
 
 from RobustFillPrimitives import RobustFillProductions
 from string import printable
+
+from recognition import GrammarNetwork, ContextualGrammarNetwork, RecognitionModel
+from grammar import ContextualGrammar
 
 #from main_supervised_deepcoder import deepcoder_io_vocab #TODO
 def _relu(x): return x.clamp(min=0)
@@ -260,7 +266,72 @@ class RobustFillLearnedFeatureExtractor(RecurrentFeatureExtractor):
                                                         cuda=self.USE_CUDA,
                                                         H=self.H,
                                                         bidirectional=True)
-        self.MAXINPUTS = 6
+        self.MAXINPUTS = 10
+
+
+class SketchFeatureExtractor(RecurrentFeatureExtractor):
+    def tokenize(self, sketch):
+        return [([], sketch)] #I think this is what I want
+
+    def __init__(self, lexicon, hidden=128, use_cuda=True): #was(self, tasks)
+        self.lexicon = set(lexicon)
+        self.USE_CUDA = use_cuda
+        self.H = hidden
+
+        super(SketchFeatureExtractor, self).__init__(lexicon=list(lexicon),
+                                                        cuda=self.USE_CUDA,
+                                                        H=self.H,
+                                                        bidirectional=True)
+
+class RegexFeatureExtractor(RecurrentFeatureExtractor):
+    def tokenize(self, examples):
+        #for example in examples:
+        return [([], example) for example in examples]
+
+    def __init__(self, lexicon, hidden=128, use_cuda=True): #was(self, tasks)
+        self.lexicon = set(lexicon)
+        self.USE_CUDA = use_cuda
+        self.H = hidden
+
+        super(RegexFeatureExtractor, self).__init__(lexicon=list(lexicon),
+                                                        cuda=self.USE_CUDA,
+                                                        H=self.H,
+                                                        bidirectional=True)
+        self.MAXINPUTS = 10
+
+class HoleSpecificFeatureExtractor(nn.Module):
+
+    def __init__(self, exampleExtractor, sketchExtractor, hidden=128, use_cuda=True):
+        super(HoleSpecificFeatureExtractor, self).__init__()
+
+        self.H = hidden
+        self.exampleExtractor = exampleExtractor
+        self.sketchExtractor = sketchExtractor
+
+        self.combining_layer = nn.Linear(self.exampleExtractor.outputDimensionality+self.sketchExtractor.outputDimensionality, self.H) # TODO
+
+        if use_cuda:
+            self.use_cuda = True
+            self.cuda() # is this okay?
+
+    def forward(self, rec_input):
+        IO, sketch = rec_input
+
+        example_features = self.exampleExtractor.featuresOfExamples(IO) #deal with tokenization and stuff in here
+        sketch_features = self.sketchExtractor.featuresOfExamples(sketch) #deal with tokenization and stuff in here
+
+        #print("example_features dims:", example_features.size())
+        e = torch.cat((example_features, sketch_features),0) # TODO: does this make sense??
+
+        e = F.relu(self.combining_layer(e)) 
+        #print("output dims:", e.size())
+        return e
+
+    def featuresOfExamples(self, rec_input):
+        return self(rec_input)
+
+    @property
+    def outputDimensionality(self): return self.H
 
 
 class DeepcoderRecognitionModel(nn.Module):
@@ -270,7 +341,8 @@ class DeepcoderRecognitionModel(nn.Module):
             grammar,
             hidden=[128],
             activation="relu",
-            cuda=False):
+            cuda=False,
+            contextual=False): #TODO implement this
         super(DeepcoderRecognitionModel, self).__init__()
         self.grammar = grammar
         self.use_cuda = cuda
@@ -330,9 +402,6 @@ class DeepcoderRecognitionModel(nn.Module):
         e[Index(0)] = w[0, :].data.numpy()
         return e
 
-    # def taskEmbeddings(self, tasks):
-    #     return {task: self.featureExtractor.featuresOfTask(task).data.numpy()
-    #             for task in tasks}
 
     def forward(self, features):
         for layer in self.hiddenLayers:
@@ -341,54 +410,81 @@ class DeepcoderRecognitionModel(nn.Module):
         # added the squeeze
         return self.logVariable(h), self.logProductions(h)
 
-    # def frontierKL(self, frontier):
-    #     features = self.featureExtractor.featuresOfTask(frontier.task)
-    #     variables, productions = self(features)
-    #     g = Grammar(
-    #         variables, [
-    #             (productions[k].view(1), t, program) for k, (_, t, program) in enumerate(
-    #                 self.grammar.productions)])
-    #     # Monte Carlo estimate: draw a sample from the frontier
-    #     entry = frontier.sample()
-    #     return - entry.program.logLikelihood(g)
-
-
-    def _run(self, IO):
-        #task = self.IO_to_task(IO) #TODO
-        features = self.featureExtractor.featuresOfExamples(IO) #TODO LOOK AT THIS
+    def _run(self, rec_input):
+        # TODO, may want to do this 
+        features = self.featureExtractor.featuresOfExamples(rec_input) #TODO LOOK AT THIS
         return self(features)
 
-
-    def loss(self, IO, program, request):
-        variables, productions = self._run(IO)
+    def loss(self, rec_input, program, request):
+        variables, productions = self._run(rec_input)
         g = Grammar(
             variables, [
                 (productions[k].view(1), t, prog) for k, (_, t, prog) in enumerate(
                     self.grammar.productions)])
-        #print("WARNING: loss mode = dreamcoder")
-        return - g.logLikelihood(request, program) #program.logLikelihood(g)
+        return - g.logLikelihood(request, program)
 
-
-    def optimizer_step(self, IO, program, request):
+    def optimizer_step(self, rec_input, program, request): #TODO: program shouldn't be full program, but thing that was hole
         #print("Warning, no batching yet")
 
         self.opt.zero_grad()
 
 
-        loss = self.loss(IO, program, request) #can throw in a .mean() here when you are batching
+        loss = self.loss(rec_input, program, request) #can throw in a .mean() here when you are batching
         loss.backward()
         self.opt.step()
 
         return loss.data.item()
 
-
-    def infer_grammar(self, IO):
-        variables, productions = self._run(IO)
+    def infer_grammar(self, rec_input):
+        variables, productions = self._run(rec_input)
         g = Grammar(
             variables, [
                 (productions[k].view(1), t, prog) for k, (_, t, prog) in enumerate(
                     self.grammar.productions)])
         return g
+
+
+
+class ImprovedRecognitionModel(RecognitionModel): # TODO change name
+    def __init__(
+            self,
+            featureExtractor,
+            grammar,
+            hidden=[128],
+            activation="relu",
+            cuda=False,
+            contextual=False): #TODO implement this
+
+        super(ImprovedRecognitionModel, self).__init__(featureExtractor, grammar, hidden=hidden,activation=activation,cuda=cuda,contextual=contextual)
+
+        self.opt = torch.optim.Adam(
+            self.parameters(), lr=0.0001, eps=1e-3, amsgrad=True)
+
+        if cuda:
+            self.cuda()
+        
+
+    def loss(self, rec_input, program, sketch, request):
+        g = self.infer_grammar(rec_input)
+
+        ll, _ = g.sketchLogLikelihood(request, program, sketch)
+        return - ll
+
+
+    def optimizer_step(self, rec_input, program, sketch, request):
+        #print("Warning, no batching yet")
+        self.opt.zero_grad()
+        loss = self.loss(rec_input, program, sketch, request) #can throw in a .mean() here when you are batching
+        loss.backward()
+        self.opt.step()
+
+        return loss.data.item()
+
+    def infer_grammar(self, rec_input):
+        features = self.featureExtractor.featuresOfExamples(rec_input)
+        g = self(features)
+        return g
+
 
 
 def load_rb_dc_model_from_path(path, max_length, max_index):
@@ -400,49 +496,39 @@ def load_rb_dc_model_from_path(path, max_length, max_index):
     return dcModel
 
 if __name__ == '__main__':
-    # from main_supervised_deepcoder import grammar, getInstance
-    # deepcoder_io_vocab = list(range(-128,128))
-
-    # inst = getInstance() #k_shot=4, max_length=30, verbose=False, with_holes=False, k=None)
-
-
-    # IO = inst['IO']
-    # print("IO:", IO)
-    # program = inst['p']
-    # print("program:", program)
-
-    # request = inst['tp']
-
-    # extractor = LearnedFeatureExtractor(deepcoder_io_vocab, hidden=128)
-    # deepcoderModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
-    # for i in range(400):
-    #     score = deepcoderModel.optimizer_step(IO, program, request)
-
-    # g = deepcoderModel.infer_grammar(IO)
 
 
     #Testing ROBUSTFILL:   
-    from makeRobustFillData import sample_datum
-    from RobustFillPrimitives import RobustFillProductions
-    grammar = Grammar.fromProductions(RobustFillProductions(25, 4))
+    from data_src.makeRegexData import sample_datum
+    from util.regex_util import basegrammar, PregHole, regex_prior
+
+    import pregex as pre
+
+    regex_vocab = list(printable[:-4]) + \
+    [pre.OPEN, pre.CLOSE, pre.String, pre.Concat, pre.Alt, pre.KleeneStar, pre.Plus, pre.Maybe, PregHole] + \
+    regex_prior.character_classes
 
     d = None
     while not d:
-        d = sample_datum(g=grammar, N=4, V=25, L=10, compute_sketches=False, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
+        d = sample_datum(g=basegrammar, N=4, compute_sketches=True, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
 
-    from string import printable
-    robustfill_vocab = printable[:-4]
-    extractor = RobustFillLearnedFeatureExtractor(robustfill_vocab, hidden=128)
-    deepcoderModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
+    input_vocab = printable[:-4]
+    exampleExtractor = RegexFeatureExtractor(input_vocab, hidden=128)
+    sketchExtractor = SketchFeatureExtractor(regex_vocab, hidden=128)
+    extractor = HoleSpecificFeatureExtractor(exampleExtractor, sketchExtractor, hidden=128, use_cuda=True)
+    deepcoderModel = ImprovedRecognitionModel(extractor, basegrammar, hidden=[128], cuda=True, contextual=False)
+
+
     for i in range(400):
-        score = deepcoderModel.optimizer_step(d.IO, d.p, d.tp)
+        score = deepcoderModel.optimizer_step((d.IO, d.sketchseq), d.p, d.sketch, d.tp) #WRONG!! shouldn't infer p, but infer
 
     print(d.p)
     print(d.IO)
-    g = deepcoderModel.infer_grammar(d.IO)
+    print(d.sketchseq)
+    g = deepcoderModel.infer_grammar((d.IO, d.sketchseq))
     print(g)
 
-    dcModel = load_rb_dc_model_from_path('experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict',25,4)
-    g = dcModel.infer_grammar(d.IO)
-    print("from pretrained")
-    print(g)
+    #dcModel = load_rb_dc_model_from_path('experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict',25,4)
+    #g = dcModel.infer_grammar(d.IO)
+    #print("from pretrained")
+    #print(g)

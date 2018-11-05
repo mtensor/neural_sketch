@@ -1,7 +1,8 @@
 #generate deepcoder data
 import sys
 import os
-#sys.path.append(os.path.abspath('./'))
+sys.path.append(os.path.abspath('./'))
+sys.path.append(os.path.abspath('./ec'))
 
 import pickle
 from util.deepcoder_util import parseprogram, make_holey_deepcoder
@@ -120,7 +121,7 @@ def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False, to
 	if compute_sketches:
 		# find sketch
 
-		grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO)
+		grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO) #This line needs to change
 		sketch, reward, sketchprob = make_holey_deepcoder(p, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) #TODO
 
 		# find sketchseq
@@ -161,38 +162,45 @@ def batchloader(data_file_list, batchsize=100, N=5, V=512, L=10, compute_sketche
 
 if __name__=='__main__':
 	from itertools import islice
-	convert_source_to_datum("a <- [int] | b <- [int] | c <- ZIPWITH + b a | d <- COUNT isEVEN c | e <- ZIPWITH MAX a c | f <- MAP MUL4 e | g <- TAKE d f")
+	#convert_source_to_datum("a <- [int] | b <- [int] | c <- ZIPWITH + b a | d <- COUNT isEVEN c | e <- ZIPWITH MAX a c | f <- MAP MUL4 e | g <- TAKE d f")
 
-	filename = 'data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt'
+	#filename = 'data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt'
 	train_data = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
 
-	test_data = ''
+	#test_data = ''
 
-	lines = (line.rstrip('\n') for i, line in enumerate(open(filename)) if i != 0) #remove first line
+	#lines = (line.rstrip('\n') for i, line in enumerate(open(filename)) if i != 0) #remove first line
 
-	from deepcoder_util import grammar
+	from util.deepcoder_util import grammar
 
-	dcModel = torch.load("./dc_model.p")
+	import models.deepcoderModel as deepcoderModel
+	dcModel = torch.load("./saved_models/dc_model.p")
 
-	for datum in islice(batchloader([train_data], batchsize=1, N=5, V=128, L=10, compute_sketches=True, top_k_sketches=20, inv_temp=0.05), 1):
+	for datum in islice(batchloader([train_data], batchsize=1, N=5, V=128, L=10, compute_sketches=True, top_k_sketches=20, inv_temp=0.25, use_timeout=True), 1):
+
 		print("program:", datum.p)
 		print("sketch: ", datum.sketch)
 		grammar = dcModel.infer_grammar(datum.IO)
+		l = grammar.sketchLogLikelihood(datum.tp, datum.p, datum.sketch)
+		print(l)
 
-		p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=True)
-		print("SKETCH:",p)
-		p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=True, use_timeout=True)
-		print("SKETCH:",p)
 
-		p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.5, reward_fn=None, sample_fn=None, verbose=True)
-		print("SKETCH:",p)
-		p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.5, reward_fn=None, sample_fn=None, verbose=True, use_timeout=True)
-		print("SKETCH:",p)
+		# 
 
-		p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.25, reward_fn=None, sample_fn=None, verbose=True)
-		print("SKETCH:",p)
-		p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.25, reward_fn=None, sample_fn=None, verbose=True, use_timeout=True)
-		print("SKETCH:",p)
+		# p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=True)
+		# print("SKETCH:",p)
+		# p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=True, use_timeout=True)
+		# print("SKETCH:",p)
+
+		# p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.5, reward_fn=None, sample_fn=None, verbose=True)
+		# print("SKETCH:",p)
+		# p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.5, reward_fn=None, sample_fn=None, verbose=True, use_timeout=True)
+		# print("SKETCH:",p)
+
+		# p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.25, reward_fn=None, sample_fn=None, verbose=True)
+		# print("SKETCH:",p)
+		# p,_,_ = make_holey_deepcoder(datum.p, 50, grammar, datum.tp, inv_temp=0.25, reward_fn=None, sample_fn=None, verbose=True, use_timeout=True)
+		# print("SKETCH:",p)
 
 	#path = 'data/pretrain_data_v1_alt.p'
 	#make_deepcoder_data(path, with_holes=True, k=20)

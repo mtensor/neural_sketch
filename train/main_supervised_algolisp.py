@@ -28,8 +28,8 @@ from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from deepcoderPrimitives import deepcoderProductions, flatten_program
 from utilities import timing
 
-from data_src.makeDeepcoderData import batchloader
-from util.deepcoder_util import parseprogram, grammar, tokenize_for_robustfill
+from data_src.makeAlgolispData import batchloader
+from util.algolisp_util import grammar, tokenize_for_robustfill
 
 
 
@@ -57,7 +57,6 @@ parser.add_argument('-k', type=int, default=50) #TODO
 parser.add_argument('--new', action='store_true')
 parser.add_argument('--rnn_max_length', type=int, default=30)
 parser.add_argument('--batchsize', type=int, default=200)
-parser.add_argument('--Vrange', type=int, default=128)
 parser.add_argument('--n_examples', type=int, default=5)
 parser.add_argument('--max_list_length', type=int, default=10)
 parser.add_argument('--max_n_inputs', type=int, default=3)
@@ -75,11 +74,11 @@ parser.add_argument('--save_freq', type=int, default=200)
 parser.add_argument('--print_freq', type=int, default=1)
 parser.add_argument('--top_k_sketches', type=int, default=100)
 parser.add_argument('--inv_temp', type=float, default=1.0)
-parser.add_argument('--use_rl', action='store_true')
-parser.add_argument('--imp_weight_trunc', action='store_true')
-parser.add_argument('--rl_no_syntax', action='store_true')
+#parser.add_argument('--use_rl', action='store_true')
+#parser.add_argument('--imp_weight_trunc', action='store_true')
+#parser.add_argument('--rl_no_syntax', action='store_true')
 parser.add_argument('--use_dc_grammar', type=str, default='NA')
-parser.add_argument('--rl_lr', type=float, default=0.001)
+parser.add_argument('--improved_dc_grammar', action='store_true')
 parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
 parser.add_argument('--sample_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
 parser.add_argument('--r_max', type=int, default=8)
@@ -89,9 +88,7 @@ parser.add_argument('--use_timeout', action='store_true')
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
-
-alpha = math.log(2)*args.num_half_lifes/math.exp(args.r_max)
-
+#alpha = math.log(2)*args.num_half_lifes/math.exp(args.r_max)
 reward_fn = {
             'original': None, 
             'linear': lambda x: max(math.exp(args.r_max) - math.exp(-x), 0)/math.exp(args.r_max),
@@ -105,9 +102,7 @@ sample_fn = {
             'flat': lambda x: 1 if x > -args.r_max else 0
                 }[args.sample_fn]
 
-
-batchsize = args.batchsize 
-Vrange = args.Vrange
+batchsize = args.batchsize
 train_datas = args.train_data
 
 if args.use_dc_grammar == 'NA':
@@ -117,10 +112,11 @@ else:
     use_dc_grammar = True
     dc_model_path = args.use_dc_grammar
 
+if use_dc_grammar:
+improved_dc_model = args.improved_dc_model
 
-def deepcoder_vocab(grammar, n_inputs=args.max_n_inputs): 
-    return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>']  # TODO
-vocab = deepcoder_vocab(grammar)
+vocab = algolisp_vocab() #TODO
+inputvocab = algolisp_input_vocab() #TODO
 
 if __name__ == "__main__":
     print("Loading model", flush=True)
@@ -132,9 +128,8 @@ if __name__ == "__main__":
     except FileNotFoundError:
         print("no saved model, creating new one")
         model = SyntaxCheckingRobustFill(
-            input_vocabularies=[list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"],
-            list(range(-Vrange, Vrange+1)) + ["LIST_START", "LIST_END"]], 
-            target_vocabulary=vocab, max_length=args.rnn_max_length, hidden_size=512)  # TODO
+            input_vocabularies=[inputvocab],
+            target_vocabulary=vocab, max_length=args.rnn_max_length, hidden_size=512)
         model.pretrain_iteration = 0
         model.pretrain_scores = []
         model.pretrain_epochs = 0
@@ -149,16 +144,6 @@ if __name__ == "__main__":
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
 
-    if args.use_rl: model._get_optimiser(lr=args.rl_lr)
-    if args.variance_reduction:
-        #if not hasattr(model, 'variance_red'):
-         #   print("creating variance_red param")
-            #variance_red = nn.Parameter(torch.Tensor([0], requires_grad=True, device="cuda"))
-            #variance_red = torch.zeros(1, requires_grad=True, device="cuda") 
-        variance_red = torch.Tensor([.95]).cuda().requires_grad_()
-        model.opt.add_param_group({"params": variance_red})
-            #model._clear_optimiser()
-
     ####### train with holes ########
     pretraining = args.pretrain and model.pretrain_epochs < args.max_pretrain_epochs
     training = model.epochs < args.max_epochs
@@ -171,19 +156,18 @@ if __name__ == "__main__":
         path = args.save_pretrained_model_path if pretraining else args.save_model_path
         for i, batch in enumerate(batchloader(train_datas,
                                                 batchsize=batchsize,
-                                                N=args.n_examples,
-                                                V=Vrange,
-                                                L=args.max_list_length, 
+                                                N=args.n_examples, #keep??
                                                 compute_sketches=not pretraining,
                                                 dc_model=dc_model if use_dc_grammar else None,
+                                                improved_dc_model=improved_dc_model,
                                                 top_k_sketches=args.top_k_sketches,
                                                 inv_temp=args.inv_temp,
                                                 reward_fn=reward_fn,
                                                 sample_fn=sample_fn,
                                                 use_timeout=args.use_timeout)):
-            IOs = tokenize_for_robustfill(batch.IOs)
+            specs = tokenize_for_robustfill(batch.specs)
             if args.timing: t = time.time()
-            objective, syntax_score = model.optimiser_step(IOs, batch.pseqs if pretraining else batch.sketchseqs)
+            objective, syntax_score = model.optimiser_step(specs, batch.pseqs if pretraining else batch.sketchseqs)
             if args.timing:
                 print(f"network time: {time.time()-t}, other time: {t-t2}")
                 t2 = time.time()
@@ -197,7 +181,7 @@ if __name__ == "__main__":
                 model.hole_scores.append(objective)
             if i%args.print_freq==0:
                 if args.use_rl: print("reweighted_reward:", reweighted_reward.mean().data.item())
-                print("iteration", i, "score:", objective if not args.use_rl else score.mean().data.item() , "syntax_score:", syntax_score if not args.use_rl else syntax_score.data.item(), flush=True)
+                print("iteration", i, "score:", objective iss`f not args.use_rl else score.mean().data.item() , "syntax_score:", syntax_score if not args.use_rl else syntax_score.data.item(), flush=True)
             if i%args.save_freq==0: 
                 if not args.nosave:
                     torch.save(model, path+f'_{str(j)}_iter_{str(i)}.p')

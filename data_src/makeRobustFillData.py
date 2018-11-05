@@ -64,7 +64,7 @@ def sample_datum(g=basegrammar, N=5, V=100, L=10, compute_sketches=False, top_k_
 
 	if compute_sketches:
 		# find sketch
-		grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO)
+		grammar = g if not dc_model else dc_model.infer_grammar(IO)
 		#with timing("make_holey"):
 		sketch, reward, sketchprob = make_holey_deepcoder(program, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) #TODO
 
