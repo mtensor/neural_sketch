@@ -28,8 +28,11 @@ from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from deepcoderPrimitives import deepcoderProductions, flatten_program
 from utilities import timing
 
+from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab
 from data_src.makeAlgolispData import batchloader
-from util.algolisp_util import grammar, tokenize_for_robustfill
+from util.algolisp_util import tokenize_for_robustfill
+
+from train.algolisp_train_dc_model import newDcModel
 
 
 
@@ -47,45 +50,44 @@ from util.algolisp_util import grammar, tokenize_for_robustfill
 # from deepcoder_util import parseprogram, grammar, tokenize_for_robustfill
 # from itertools import chain
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--pretrain', action='store_true')
-parser.add_argument('--debug', action='store_true')
-parser.add_argument('--nosave', action='store_true')
-#parser.add_argument('--start_with_holes', action='store_true')
-parser.add_argument('--variance_reduction', action='store_true')
-parser.add_argument('-k', type=int, default=50) #TODO
-parser.add_argument('--new', action='store_true')
-parser.add_argument('--rnn_max_length', type=int, default=30)
-parser.add_argument('--batchsize', type=int, default=200)
-parser.add_argument('--n_examples', type=int, default=5)
-parser.add_argument('--max_list_length', type=int, default=10)
-parser.add_argument('--max_n_inputs', type=int, default=3)
-parser.add_argument('--max_pretrain_epochs', type=int, default=10)
-parser.add_argument('--max_pretrain_iterations', type=int, default=100000)
-parser.add_argument('--max_iterations', type=int, default=100000)
-parser.add_argument('--max_epochs', type=int, default=10)
-parser.add_argument('--train_data', nargs='*', 
-    default=['data/DeepCoder_data/T2_A2_V512_L10_train.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'])
+parser2 = argparse.ArgumentParser()
+parser2.add_argument('--pretrain', action='store_true')
+parser2.add_argument('--debug', action='store_true')
+parser2.add_argument('--nosave', action='store_true')
+#parser2.add_argument('--start_with_holes', action='store_true')
+parser2.add_argument('--variance_reduction', action='store_true')
+parser2.add_argument('-k', type=int, default=50) #TODO
+parser2.add_argument('--new', action='store_true')
+parser2.add_argument('--rnn_max_length', type=int, default=250)
+parser2.add_argument('--batchsize', type=int, default=32)
+#parser2.add_argument('--n_examples', type=int, default=5)
+parser2.add_argument('--max_list_length', type=int, default=10)
+parser2.add_argument('--max_n_inputs', type=int, default=3)
+parser2.add_argument('--max_pretrain_epochs', type=int, default=10)
+parser2.add_argument('--max_pretrain_iterations', type=int, default=100000)
+parser2.add_argument('--max_iterations', type=int, default=100000)
+parser2.add_argument('--max_epochs', type=int, default=10)
+parser2.add_argument('--train_data', type=str, default='train')
 # save and load files
-parser.add_argument('--load_pretrained_model_path', type=str, default="./saved_models/deepcoder_pretrained.p")
-parser.add_argument('--save_pretrained_model_path', type=str, default="./saved_models/deepcoder_pretrained.p")
-parser.add_argument('--save_model_path', type=str, default="./saved_models/deepcoder_holes.p")
-parser.add_argument('--save_freq', type=int, default=200)
-parser.add_argument('--print_freq', type=int, default=1)
-parser.add_argument('--top_k_sketches', type=int, default=100)
-parser.add_argument('--inv_temp', type=float, default=1.0)
-#parser.add_argument('--use_rl', action='store_true')
-#parser.add_argument('--imp_weight_trunc', action='store_true')
-#parser.add_argument('--rl_no_syntax', action='store_true')
-parser.add_argument('--use_dc_grammar', type=str, default='NA')
-parser.add_argument('--improved_dc_grammar', action='store_true')
-parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
-parser.add_argument('--sample_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
-parser.add_argument('--r_max', type=int, default=8)
-parser.add_argument('--timing', action='store_true')
-parser.add_argument('--num_half_lifes', type=float, default=4)
-parser.add_argument('--use_timeout', action='store_true')
-args = parser.parse_args()
+parser2.add_argument('--load_pretrained_model_path', type=str, default="./saved_models/algolisp_pretrained.p")
+parser2.add_argument('--save_pretrained_model_path', type=str, default="./saved_models/algolisp_pretrained.p")
+parser2.add_argument('--save_model_path', type=str, default="./saved_models/algolisp_holes.p")
+parser2.add_argument('--save_freq', type=int, default=200)
+parser2.add_argument('--print_freq', type=int, default=1)
+parser2.add_argument('--top_k_sketches', type=int, default=100)
+parser2.add_argument('--inv_temp', type=float, default=1.0)
+#parser2.add_argument('--use_rl', action='store_true')
+#parser2.add_argument('--imp_weight_trunc', action='store_true')
+#parser2.add_argument('--rl_no_syntax', action='store_true')
+parser2.add_argument('--use_dc_grammar', type=str, default='./saved_models/algolisp_dc_model.p_5_iter_25500.p')
+parser2.add_argument('--improved_dc_model', action='store_true', default=True)
+parser2.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
+parser2.add_argument('--sample_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
+parser2.add_argument('--r_max', type=int, default=8)
+parser2.add_argument('--timing', action='store_true', default=True)
+parser2.add_argument('--num_half_lifes', type=float, default=4)
+parser2.add_argument('--use_timeout', action='store_true')
+args = parser2.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
 #alpha = math.log(2)*args.num_half_lifes/math.exp(args.r_max)
@@ -112,11 +114,11 @@ else:
     use_dc_grammar = True
     dc_model_path = args.use_dc_grammar
 
-if use_dc_grammar:
+#if use_dc_grammar:
 improved_dc_model = args.improved_dc_model
 
-vocab = algolisp_vocab() #TODO
-inputvocab = algolisp_input_vocab() #TODO
+vocab = list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
+inputvocab = algolisp_input_vocab #TODO
 
 if __name__ == "__main__":
     print("Loading model", flush=True)
@@ -125,6 +127,7 @@ if __name__ == "__main__":
         else:
             model=torch.load(args.load_pretrained_model_path)
             print('found saved model, loaded pretrained model (without holes)')
+            model = model.with_target_vocabulary(vocab)
     except FileNotFoundError:
         print("no saved model, creating new one")
         model = SyntaxCheckingRobustFill(
@@ -139,7 +142,9 @@ if __name__ == "__main__":
 
     if use_dc_grammar:
         print("loading dc model")
-        dc_model=torch.load(dc_model_path)
+        dc_model=newDcModel()
+        dc_model.load_state_dict(torch.load(dc_model_path))
+        dc_model.cuda()
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -156,7 +161,6 @@ if __name__ == "__main__":
         path = args.save_pretrained_model_path if pretraining else args.save_model_path
         for i, batch in enumerate(batchloader(train_datas,
                                                 batchsize=batchsize,
-                                                N=args.n_examples, #keep??
                                                 compute_sketches=not pretraining,
                                                 dc_model=dc_model if use_dc_grammar else None,
                                                 improved_dc_model=improved_dc_model,
@@ -166,6 +170,7 @@ if __name__ == "__main__":
                                                 sample_fn=sample_fn,
                                                 use_timeout=args.use_timeout)):
             specs = tokenize_for_robustfill(batch.specs)
+            if i==0: print("batchsize:", len(specs))
             if args.timing: t = time.time()
             objective, syntax_score = model.optimiser_step(specs, batch.pseqs if pretraining else batch.sketchseqs)
             if args.timing:
@@ -180,8 +185,8 @@ if __name__ == "__main__":
                 if model.iteration >= args.max_iterations: break
                 model.hole_scores.append(objective)
             if i%args.print_freq==0:
-                if args.use_rl: print("reweighted_reward:", reweighted_reward.mean().data.item())
-                print("iteration", i, "score:", objective iss`f not args.use_rl else score.mean().data.item() , "syntax_score:", syntax_score if not args.use_rl else syntax_score.data.item(), flush=True)
+                #if args.use_rl: print("reweighted_reward:", reweighted_reward.mean().data.item())
+                print("iteration", i, "score:", objective , "syntax_score:", syntax_score, flush=True)
             if i%args.save_freq==0: 
                 if not args.nosave:
                     torch.save(model, path+f'_{str(j)}_iter_{str(i)}.p')

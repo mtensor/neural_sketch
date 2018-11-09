@@ -5,8 +5,6 @@ sys.path.append(os.path.abspath('./'))
 sys.path.append(os.path.abspath('./ec'))
 
 import pickle
-from util.deepcoder_util import parseprogram, make_holey_deepcoder
-from util.deepcoder_util import grammar as basegrammar
 import time
 from collections import namedtuple
 #Function = namedtuple('Function', ['src', 'sig', 'fun', 'bounds'])
@@ -14,12 +12,14 @@ from collections import namedtuple
 from grammar import Grammar, NoCandidates
 from utilities import flatten
 
-from deepcoderPrimitives import deepcoderProductions, flatten_program
+from algolispPrimitives import tsymbol, algolispProductions, algolispPrimitives
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 import math
 import random
 from type import Context, arrow, tint, tlist, UnificationFailure
-from data_src.dc_program import generate_IO_examples, compile
+
+from util.algolisp_util import convert_IO, tree_to_prog, make_holey_algolisp, AlgolispHole, tree_to_seq
+
 from itertools import zip_longest, chain
 from functools import reduce
 import torch
@@ -32,9 +32,11 @@ from program_synthesis.algolisp import arguments
 
 #Datum = namedtuple('Datum', ['tp', 'p', 'pseq', 'IO', 'sketch', 'sketchseq'])
 
+basegrammar = Grammar.fromProductions(algolispProductions())
+
 #redo this ...
 class Datum():
-	def __init__(self, tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob, spec):
+	def __init__(self, tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob, spec, schema_args):
 		self.tp = tp
 		self.p = p
 		self.pseq = pseq
@@ -44,13 +46,14 @@ class Datum():
 		self.reward = reward
 		self.sketchprob = sketchprob
 		self.spec = spec
+		self.schema_args = schema_args
 
 	def __hash__(self): 
-		return reduce(lambda a, b: hash(a + hash(b)), flatten(self.IO), 0) + hash(self.p) + hash(self.sketch)
+		return reduce(lambda a, b: hash(a + hash(b)), flatten(self.spec, abort=lambda x: type(x) is str), 0) + hash(self.p) + hash(self.sketch)
 
-Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs', 'rewards', 'sketchprobs','specs'])
+Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs', 'rewards', 'sketchprobs','specs', 'schema_args'])
 
-def convert_datum(ex, N=5, compute_sketches=False, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None, improved_dc_model=True, use_timeout=False, proper_type=False):
+def convert_datum(ex, compute_sketches=False, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None, improved_dc_model=True, use_timeout=False, proper_type=False):
 	"""
 	for ex in b:
 		ex.text
@@ -59,7 +62,9 @@ def convert_datum(ex, N=5, compute_sketches=False, top_k_sketches=20, inv_temp=1
 	"""
 
 	#find IO
-	IO = convert_IO(ex.tests)
+	IO = convert_IO(ex.tests) #TODO
+
+	schema_args = ex.schema.args
 
 	# find tp
 	if proper_type:
@@ -90,19 +95,17 @@ def convert_datum(ex, N=5, compute_sketches=False, top_k_sketches=20, inv_temp=1
 	else:
 		sketch, sketchseq, reward, sketchprob = None, None, None, None
 
-	return Datum(tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob, spec)
+	return Datum(tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob, spec, schema_args)
 
 
-def batchloader(data_file, batchsize=100, N=5, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
-
+def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
 
 	parser = arguments.get_arg_parser('Training AlgoLisp', 'train')
+	args = parser.parse_args()
+	args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    args = parser.parse_args()
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
-
-	args.batchsize = batchsize # ARGS
-
+	args.batch_size = batchsize # ARGS
+	print("args.batch_size", args.batch_size)
 
 	if data_file == 'train':
 		data, _ = dataset.get_dataset(args)
@@ -116,7 +119,6 @@ def batchloader(data_file, batchsize=100, N=5, compute_sketches=False, dc_model=
 	#figure out how to deal with these
 	if batchsize==1:
 		data = (convert_datum(ex,
-			N=N,
 			compute_sketches=compute_sketches,
 			top_k_sketches=top_k_sketches,
 			inv_temp=inv_temp,
@@ -125,16 +127,15 @@ def batchloader(data_file, batchsize=100, N=5, compute_sketches=False, dc_model=
 			dc_model=dc_model,
 			improved_dc_model=improved_dc_model,
 			use_timeout=use_timeout,
-			proper_type=False))
+			proper_type=False) for batch in data for ex in batch) #I assume batch has one ex
 		yield from (x for x in data if x is not None)
 
 	else:
 		#then i want
 		for batch in data:
-			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs, specs = zip(*[
-				(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob, datum.spec)
+			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs, specs, schema_args = zip(*[
+				(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob, datum.spec, datum.schema_args)
 				for datum in (convert_datum(ex,
-									N=N,
 									compute_sketches=compute_sketches,
 									top_k_sketches=top_k_sketches,
 									inv_temp=inv_temp,
@@ -146,36 +147,21 @@ def batchloader(data_file, batchsize=100, N=5, compute_sketches=False, dc_model=
 									proper_type=False) for ex in batch)
 				 					if datum is not None])
 			
-			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None, specs)  # check that his work
+			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None, specs, schema_args)  # check that his work
 
 if __name__=='__main__':
 	from itertools import islice
-	#convert_source_to_datum("a <- [int] | b <- [int] | c <- ZIPWITH + b a | d <- COUNT isEVEN c | e <- ZIPWITH MAX a c | f <- MAP MUL4 e | g <- TAKE d f")
-
-	#filename = 'data/DeepCoder_data/T2_A2_V512_L10_train_perm.txt'
-	#train_data = 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'
-	#test_data = ''
-
-	#lines = (line.rstrip('\n') for i, line in enumerate(open(filename)) if i != 0) #remove first line
-
-	# import models.deepcoderModel as deepcoderModel
-	# dcModel = torch.load("./saved_models/dc_model.p")
-
-	# for datum in islice(batchloader([train_data], batchsize=1, N=5, V=128, L=10, compute_sketches=True, top_k_sketches=20, inv_temp=0.25, use_timeout=True), 1):
-
-	# 	print("program:", datum.p)
-	# 	print("sketch: ", datum.sketch)
-	# 	grammar = dcModel.infer_grammar(datum.IO)
-	# 	l = grammar.sketchLogLikelihood(datum.tp, datum.p, datum.sketch)
-	# 	print(l)
 
 
-	d = batchloader('train', batchsize=1, N=5, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
+	algolispProductions()
+
+	d = islice(batchloader('train', batchsize=200, compute_sketches=True, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False),100)
 
 	for datum in d:
 		print("program:", datum.p)
 		print("sketch: ", datum.sketch)
-		assert False
+		print(len(datum.pseq))
+		print()
 
 
 

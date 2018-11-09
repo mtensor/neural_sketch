@@ -33,8 +33,11 @@ from program_synthesis.algolisp.dataset import data
 from program_synthesis.algolisp.dataset import executor
 #primitive_lookup = {prim.name:prim.name for prim in napsPrimitives()}
 
+def tokenize_for_robustfill(specs):
+    return [[spec] for spec in specs]
+
 def convert_IO(tests):
-    assert False
+    return tests
 
 def tree_to_seq(tree):
     return data.flatten_lisp_code(tree)  #from algolisp.data
@@ -42,30 +45,11 @@ def tree_to_seq(tree):
 def seq_to_tree(seq):
     #from algolisp code
     #try:
-    code, _ = data.unflatten_code(code, 'lisp')
+    code, _ = data.unflatten_code(seq, 'lisp')
     #except:
     #    return None #?
 
     return code
-
-#def evaluate(seq)
-
-#from algolisp code
-executor_ = executor.LispExecutor()
-
-# #for reference:
-# def get_stats_from_code(args):
-#     res, example, executor_ = args
-#     if len(example.tests) == 0:
-#         return None
-#     if executor_ is not None:
-#         stats = executor.evaluate_code(
-#             res.code_tree if res.code_tree else res.code_sequence, example.schema.args, example.tests,
-#             executor_)
-#         stats['exact-code-match'] = is_same_code(example, res)
-#         stats['correct-program'] = int(stats['tests-executed'] == stats['tests-passed'])
-#     else: assert False
-# #what is a res?
 
 class AlgolispHole(Hole):
     def show(self, isFunction): return "<HOLE>"
@@ -87,16 +71,17 @@ def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc
     0 < inv_temp < 1 ==> something in between
     """ 
     if dcModel is None:
+        #print("dcModel NONE")
         g = basegrammar
         choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
     elif dcModel and not improved_dc_model:
-        g = dc_model.infer_grammar(dc_input) #This line needs to change
+        g = dcModel.infer_grammar(dc_input) #(spec, sketch)
         choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
     else: 
         assert improved_dc_model
         g = basegrammar
-        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
-        choices = [sketch, dc_model.infer_grammar((dc_input, tree_to_seq(sketch.evaluate([])))).sketchLogLikelihood(sketch)  for sketch, prob in choices]  #TODO check this
+        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj) # request, full, sk
+        choices = [( sketch, dcModel.infer_grammar((dc_input, tree_to_seq(sketch.evaluate([])))).sketchLogLikelihood(tsymbol, prog, sketch)[0] ) for sketch, prob in choices]  #TODO check this
 
     if len(list(choices)) == 0:
         #if there are none, then use the original program ,
@@ -147,7 +132,7 @@ def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc
         return prog_reward_probs[0] #outputs prog, prob
 
 
-def tree_to_ec(tree):
+def tree_to_prog(tree):
 
     def init_arg_list(expr):
         #convert to symbol
@@ -216,7 +201,12 @@ def tree_to_ec(tree):
         elif l == '<HOLE>': #TODO
             return AlgolispHole()
         else:
-            assert False
+            if not l==" ":
+                print("l is not space")
+                l.__repr__()
+            if not l=="\t":
+                print("l is not tab")
+            assert False, f"uncaught item: {l}"
         #elif l == variable name:
         #    assert False
 
@@ -239,7 +229,7 @@ if __name__=='__main__':
     tree = p.evaluate([])
     print(tree)
 
-    prog = tree_to_ec(tree)
+    prog = tree_to_prog(tree)
     print(prog)
 
 
