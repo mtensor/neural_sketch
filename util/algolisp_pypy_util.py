@@ -3,7 +3,7 @@
 
 import time
 from program import ParseFailure, Context
-from grammar import NoCandidates, Grammar
+from grammar import NoCandidates, Grammar, SketchEnumerationFailure
 from utilities import timing, callCompiled
 from collections import namedtuple
 from itertools import islice, zip_longest
@@ -40,7 +40,7 @@ def test_program_on_IO(e, IO, schema_args):
 	stats = executor.evaluate_code(
 		e, schema_args, IO,
 		executor_)
-
+	#print(stats['tests-executed'], stats['tests-passed'])
 	return stats['tests-executed'] == stats['tests-passed']
 
 def alternate(*args):
@@ -50,11 +50,29 @@ def alternate(*args):
 			if item is not None:
 				yield item
 
+
+
+
 def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check):
 	results = []
-	for sketch, x in alternate(*(((sk.sketch, x) for x in sk.g.sketchEnumeration(Context.EMPTY, [], tp, sk.sketch, mdl)) for sk in sketchtups)):
-		_, _, p = x
+
+	# empty = all(False for _ in alternate(*(((sk.sketch, x) for x in sk.g.sketchEnumeration(Context.EMPTY, [], tp, sk.sketch, mdl)) for sk in sketchtups)))
+	# if empty:
+	# 	print("ALTERNATE EMPTY") #TODO
+		#print("lensketchups", len(sketchtups))
+		#print(p for p in sk.g.sketchEnumeration(Context.EMPTY, [], tp, sk.sketch, mdl) for sk in sketchtups)
+
+	#for sketch, xp in alternate(*(((sk.sketch, x) for x in sk.g.sketchEnumeration(Context.EMPTY, [], tp, sk.sketch, mdl)) for sk in sketchtups)):
+	
+
+	f = lambda tup: map( lambda x: (tup.sketch, x), tup.g.sketchEnumeration(Context.EMPTY, [], tp, tup.sketch, mdl, maximumDepth=100))
+	sIterable = list(map(f, sketchtups))
+
+	hit = False
+	for sketch, xp in alternate(* sIterable ):
+		_, _, p = xp
 		e = p.evaluate([])
+		#print(e)
 		hit = test_program_on_IO(e, IO, schema_args)
 		prog = p if hit else None
 		n_checked += 1
@@ -62,6 +80,8 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 		results.append( AlgolispResult(sketch, prog, hit, n_checked, time.time()-t) )
 		if hit: break
 		if n_checked >= max_to_check: break
+
+	if n_checked < len(sketchtups) and not hit: print("WARNING: not all candidate sketches checked")
 	return results, n_checked, n_hit
 
 

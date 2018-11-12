@@ -100,19 +100,21 @@ def convert_datum(ex, compute_sketches=False, top_k_sketches=20, inv_temp=1.0, r
 
 def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
 
-	parser = arguments.get_arg_parser('Training AlgoLisp', 'train')
-	args = parser.parse_args()
+	mode = 'train' if data_file=='train' else 'eval'
+	parser = arguments.get_arg_parser('Training AlgoLisp', mode)
+	args = parser.parse_args([]) #does this do it?
 	args.cuda = not args.no_cuda and torch.cuda.is_available()
 
 	args.batch_size = batchsize # ARGS
 	print("args.batch_size", args.batch_size)
 
 	if data_file == 'train':
-		data, _ = dataset.get_dataset(args)
+		NearDataset, _ = dataset.get_dataset(args)
 	elif data_file == 'dev':
-		_, data = dataset.get_dataset(args)
+		_, NearDataset = dataset.get_dataset(args)
 	elif data_file == 'eval':
-		data = dataset.get_eval_dataset(args)
+		print("WARNING: right now 'eval' gives 'dev' test set")
+		NearDataset = dataset.get_eval_dataset(args) # TODO:
 	else:
 		assert False
 
@@ -127,12 +129,12 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 			dc_model=dc_model,
 			improved_dc_model=improved_dc_model,
 			use_timeout=use_timeout,
-			proper_type=False) for batch in data for ex in batch) #I assume batch has one ex
+			proper_type=False) for batch in NearDataset for ex in batch) #I assume batch has one ex
 		yield from (x for x in data if x is not None)
 
 	else:
 		#then i want
-		for batch in data:
+		for batch in NearDataset:
 			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs, specs, schema_args = zip(*[
 				(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob, datum.spec, datum.schema_args)
 				for datum in (convert_datum(ex,

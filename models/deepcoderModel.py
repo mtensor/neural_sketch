@@ -134,7 +134,7 @@ class RecurrentFeatureExtractor(nn.Module):
         for j, e in enumerate(es):
             es[j] += [self.endingIndex] * (m - len(e))
 
-        x = variable(es, cuda=self.use_cuda)
+        x = variable(es, cuda=next(self.encoder.parameters()).is_cuda) #checks if encoder is cuda'd or not
         x = self.encoder(x)
         # x: (batch size, maximum length, E)
         x = x.permute(1, 0, 2)

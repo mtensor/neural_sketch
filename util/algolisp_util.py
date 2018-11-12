@@ -143,8 +143,12 @@ def tree_to_prog(tree):
             symb = Application(Primitive.GLOBALS["symbol_constant"], expr)
         elif tp == tfunction:
             symb = Application(Primitive.GLOBALS["symbol_function"], expr)
+        elif expr.isHole:
+            symb = expr
         else:
-            print(tp)
+            print("unsupported expression:")
+            print("type:", tp)
+            print("expr:", expr)
             assert False
 
         return Application(Primitive.GLOBALS["list_init_symbol"], symb) #TODO
@@ -158,8 +162,12 @@ def tree_to_prog(tree):
             symb = Application(Primitive.GLOBALS["symbol_constant"], expr)
         elif tp == tfunction:
             symb = Application(Primitive.GLOBALS["symbol_function"], expr)
+        elif expr.isHole:
+            symb = expr
         else:
-            print(tp)
+            print("unsupported expression:")
+            print("type:", tp)
+            print("expr:", expr)
             assert False
 
         return Application(Application(Primitive.GLOBALS["list_add_symbol"], symb), args)#TODO
