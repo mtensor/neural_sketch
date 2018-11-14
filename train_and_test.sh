@@ -4,6 +4,8 @@
 
 if [[ "$@" == "--inner" ]]; then
 
+	which python
+
 	#Only pretrain
 	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 7 --filter_depth 1 2 3 4 5 6 7)
 	echo "pretraining job: $RES_PRE"
@@ -33,5 +35,6 @@ if [[ "$@" == "--inner" ]]; then
 
 else
 	#to activate, should properly run:
-	name=first_algolisp_all g-run bash train_and_test.sh --inner > run.txt ; #can i do this??
+	echo "running main script at run.txt"
+	name=algolisp_first_all g-run bash train_and_test.sh --inner > run.txt ; #can i do this??
 fi

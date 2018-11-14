@@ -11,4 +11,5 @@
 #export PATH=/om/user/mnye/miniconda3/bin/:$PATH
 #source activate /om/user/mnye/vhe/envs/default/
 #cd /om/user/mnye/vhe
+which python
 anaconda-project run $@
