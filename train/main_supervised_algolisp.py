@@ -78,7 +78,7 @@ parser.add_argument('--inv_temp', type=float, default=1.0)
 #parser.add_argument('--use_rl', action='store_true')
 #parser.add_argument('--imp_weight_trunc', action='store_true')
 #parser.add_argument('--rl_no_syntax', action='store_true')
-parser.add_argument('--use_dc_grammar', type=str, default='./saved_models/algolisp_dc_model.p_5_iter_25500.p')
+parser.add_argument('--use_dc_grammar', type=str, default='NA') #'./saved_models/algolisp_dc_model.p' #_5_iter_25500.p
 parser.add_argument('--improved_dc_model', action='store_true', default=True)
 parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
 parser.add_argument('--sample_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])

@@ -11,14 +11,14 @@ if [[ "$@" == "--inner" ]]; then
 	echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --filter_depth --filter_depth 1 2 3 4 5 6 7)
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --filter_depth 1 2 3 4 5 6 7)
  	echo "dc model training job: $RES_DC"
 
  	#SLEEP if not ready
  	while [ "$(sacct -j $RES_PRE.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ] && [ "$(sacct -j $RES_DC.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
 	
 	# train model:
-	RES_TRAIN=$(sbatch --parsable -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth --filter_depth 1 2 3 4 5 6 7 --max_epochs 7)
+	RES_TRAIN=$(sbatch --parsable -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth 1 2 3 4 5 6 7 --max_epochs 7 --use_dc_grammar './saved_models/algolisp_dc_model.p')
 
 
 	while [ "$(sacct -j $RES_TRAIN.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
@@ -36,5 +36,5 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=algolisp_first_all g-run bash train_and_test.sh --inner > run.txt ; #can i do this??
+	name=algolisp_first_all g-run bash train_and_test.sh --inner > run.txt & #can i do this??
 fi
