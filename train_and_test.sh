@@ -33,5 +33,5 @@ if [[ "$@" == "--inner" ]]; then
 
 else
 	#to activate, should properly run:
-	name=first_algolisp_all g-run train_and_test.sh --inner > run.txt ; #can i do this??
+	name=first_algolisp_all g-run bash train_and_test.sh --inner > run.txt ; #can i do this??
 fi
