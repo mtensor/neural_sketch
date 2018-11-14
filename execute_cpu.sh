@@ -2,7 +2,7 @@
 
 #SBATCH --qos=tenenbaum
 #SBATCH --time=3000
-#SBATCH --mem=200G
+#SBATCH --mem=50G
 #SBATCH --job-name=neural_sketch_eval
 #SBATCH --cpus-per-task=48
 

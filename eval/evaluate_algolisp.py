@@ -16,7 +16,7 @@ import dill
 import copy
 
 from util.algolisp_pypy_util import AlgolispResult, SketchTup, alternate, pypy_enumerate, algolisp_enumerate #TODO
-from util.algolisp_util import tokenize_for_robustfill, seq_to_tree, tree_to_prog  # TODO
+from util.algolisp_util import tokenize_for_robustfill, seq_to_tree, tree_to_prog, tree_depth  # TODO
 from data_src.makeAlgolispData import batchloader, basegrammar
 from train.algolisp_train_dc_model import newDcModel
 
@@ -27,10 +27,11 @@ from itertools import islice
 
 from torch.multiprocessing import Pool, Queue, Process
 import functools
+import traceback
 #train & use dcModel
 #which requires converting programs to EC domain
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_test', type=int, default=10819)
+parser.add_argument('--n_test', type=int, default=10819) #only_passable length is 9807
 parser.add_argument('--dcModel', action='store_true', default=True)
 parser.add_argument('--dcModel_path',type=str, default="./saved_models/algolisp_dc_model.p")
 parser.add_argument('--improved_dc_grammar', action='store_true', default=True)
@@ -50,6 +51,8 @@ parser.add_argument('--chunksize', type=int, default=100)
 parser.add_argument('--n_processes', type=int, default=48)
 parser.add_argument('--cpu', action='store_true')
 parser.add_argument('--queue', action='store_true')
+parser.add_argument('--only_passable', action='store_true')
+parser.add_argument('--filter_depth', type=list, default=None)
 args = parser.parse_args()
 
 args.cpu = args.cpu or args.parallel #if parallel, then it must be cpu only
@@ -98,6 +101,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 			sk = tree_to_prog(tr)
 		except Exception as e: # TODO: needs to be fixed
 			print("EXCEPTION IN PARSE:,", e)
+			traceback.print_tb(e.__traceback__)
 			n_checked += 1
 			yield (AlgolispResult(sample, None, False, n_checked, time.time()-t))
 			continue
@@ -112,7 +116,6 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	#print("sketchtups:", sketchtups)
 
 	#alternate which sketch to enumerate from each time
-
 	if args.pypy:
 		results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
 	else:
@@ -122,7 +125,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
 	print(f"evaluation for task {i} took {time.time()-t} seconds")
-	print(f"For task {i}, tried {n_checked} candidates, found {n_hit} hits")
+	print(f"For task {i}, tried {n_checked} candidates, found {n_hit} hits", flush=True)
 
 def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	t = time.time()
@@ -228,11 +231,23 @@ if __name__=='__main__':
 	else: dcModel = None
 
 	###load the test dataset###
-	dataset = batchloader(args.dataset, batchsize=1,
-                                                compute_sketches=False,
-                                                dc_model=None,
-                                                improved_dc_model=False)  #TODO
+	dataset = batchloader(args.dataset,
+							batchsize=1,
+                            compute_sketches=False,
+                            dc_model=None,
+                            improved_dc_model=False,
+                            only_passable=args.only_passable,
+                            filter_depth=args.filter_depth) #TODO
 	dataset = islice(dataset, args.n_test)
+
+	from collections import Counter
+
+
+	c = Counter()
+	c.update(tree_depth(seq_to_tree(d.pseq)) for d in dataset)
+	print(c)
+	assert False
+
 
 	#this needs to be here for stuped reasons ...
 	def f(i_datum):

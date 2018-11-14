@@ -44,12 +44,15 @@ def tree_to_seq(tree):
 
 def seq_to_tree(seq):
     #from algolisp code
-    #try:
     code, _ = data.unflatten_code(seq, 'lisp')
-    #except:
-    #    return None #?
-
     return code
+
+def tree_depth(tree):
+    depth = 0
+    for x in tree:
+        if type(x)==list:
+            depth = max(tree_depth(x), depth)
+    return depth + 1
 
 class AlgolispHole(Hole):
     def show(self, isFunction): return "<HOLE>"
