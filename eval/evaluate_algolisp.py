@@ -52,7 +52,7 @@ parser.add_argument('--n_processes', type=int, default=48)
 parser.add_argument('--cpu', action='store_true')
 parser.add_argument('--queue', action='store_true')
 parser.add_argument('--only_passable', action='store_true')
-parser.add_argument('--filter_depth', type=list, default=None)
+parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
 args = parser.parse_args()
 
 args.cpu = args.cpu or args.parallel #if parallel, then it must be cpu only
@@ -240,13 +240,13 @@ if __name__=='__main__':
                             filter_depth=args.filter_depth) #TODO
 	dataset = islice(dataset, args.n_test)
 
-	from collections import Counter
+	# from collections import Counter
 
 
-	c = Counter()
-	c.update(tree_depth(seq_to_tree(d.pseq)) for d in dataset)
-	print(c)
-	assert False
+	# c = Counter()
+	# c.update(tree_depth(seq_to_tree(d.pseq)) for d in dataset)
+	# print(c)
+	# assert False
 
 
 	#this needs to be here for stuped reasons ...

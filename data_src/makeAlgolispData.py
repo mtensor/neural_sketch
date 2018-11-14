@@ -111,8 +111,6 @@ def convert_datum(ex,
 
 def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False, only_passable=False, filter_depth=None):
 
-	if filter_depth: raise NotImplementedError
-
 	mode = 'train' if data_file=='train' else 'eval'
 	parser = arguments.get_arg_parser('Training AlgoLisp', mode)
 	args = parser.parse_args([]) #this takes only the default values, allowing us to use the top-level parser for our code in main files
@@ -153,7 +151,7 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs, specs, schema_args = zip(*[
 				(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob, datum.spec, datum.schema_args)
 				for datum in group if datum is not None])
-		yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None, specs, schema_args)  # check that his work
+			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None, specs, schema_args)  # check that his work
 
 		# for batch in NearDataset:
 		# 	tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs, specs, schema_args = zip(*[

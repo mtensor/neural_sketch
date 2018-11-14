@@ -86,7 +86,7 @@ parser.add_argument('--r_max', type=int, default=8)
 parser.add_argument('--timing', action='store_true', default=True)
 parser.add_argument('--num_half_lifes', type=float, default=4)
 parser.add_argument('--use_timeout', action='store_true')
-parser.add_argument('--filter_depth', type=list, default=None)
+parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
