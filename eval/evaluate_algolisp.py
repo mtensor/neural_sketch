@@ -28,6 +28,10 @@ from itertools import islice
 from torch.multiprocessing import Pool, Queue, Process
 import functools
 import traceback
+
+from task import Task, EvaluationTimeout
+import signal
+
 #train & use dcModel
 #which requires converting programs to EC domain
 parser = argparse.ArgumentParser()
@@ -53,6 +57,7 @@ parser.add_argument('--cpu', action='store_true')
 parser.add_argument('--queue', action='store_true')
 parser.add_argument('--only_passable', action='store_true')
 parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
+parser.add_argument('--timeout', type=int, default=None)
 args = parser.parse_args()
 
 args.cpu = args.cpu or args.parallel #if parallel, then it must be cpu only
@@ -73,59 +78,76 @@ def untorch(g):
                                [ (l.data.tolist()[0], t, p)
                                  for l, t, p in g.productions])
 
-def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
-	t = time.time()
-	print("eval datum number", i)
-	samples = {('<HOLE>',)}  # make more general #  TODO, i don't think 
-	n_checked, n_hit = 0, 0
-	if model:
-		#print("num threads:", torch.get_num_threads())
-		torch.set_num_threads(1)
-		tnet = time.time()
-		#print("task", i, "started using rnn")
-		if args.beam:
-			samples, _scores = model.beam_decode(tokenize_for_robustfill([datum.spec]), beam_size=nRepeats)
+def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeout=None):
+	try:
+		if timeout is not None:
+			print("hit set timeout")
+			def timeoutCallBack(_1, _2): raise EvaluationTimeout()
+			signal.signal(signal.SIGVTALRM, timeoutCallBack)
+			signal.setitimer(signal.ITIMER_VIRTUAL, timeout)
+
+		t = time.time()
+		results = []
+		print("eval datum number", i)
+		samples = {('<HOLE>',)}  # make more general #  TODO, i don't think 
+		n_checked, n_hit = 0, 0
+		if model:
+			#print("num threads:", torch.get_num_threads())
+			torch.set_num_threads(1)
+			tnet = time.time()
+			#print("task", i, "started using rnn")
+			if args.beam:
+				samples, _scores = model.beam_decode(tokenize_for_robustfill([datum.spec]), beam_size=nRepeats)
+			else:
+				samples, _scores, _ = model.sampleAndScore(tokenize_for_robustfill([datum.spec]), nRepeats=nRepeats)
+			#print("task", i, "done with rnn, took", time.time()-tnet, "seconds")
+			# only loop over unique samples:
+			samples = {tuple(sample) for sample in samples}  # only 
+		if (not improved_dc_grammar) or (not dcModel):
+			g = basegrammar if not dcModel else dcModel.infer_grammar(datum.spec)  # TODO pp
+			g = untorch(g)
+		sketchtups = []
+		for sample in samples:
+			try:
+				tr = seq_to_tree(sample)
+				#print(tr)
+				sk = tree_to_prog(tr)
+			except Exception as e: # TODO: needs to be fixed
+				print("EXCEPTION IN PARSE:,", e)
+				#traceback.print_tb(e.__traceback__)
+				n_checked += 1
+				results.append( AlgolispResult(sample, None, False, n_checked, time.time()-t) )
+				continue
+
+			if improved_dc_grammar:
+				g = untorch(dcModel.infer_grammar((datum.spec, sample))) #TODO: make sure this line is correct ..
+			
+			sketchtups.append(SketchTup(sk, g))
+
+		# only loop over unique sketches:
+		sketchtups = {sk for sk in sketchtups} #fine
+		#print("sketchtups:", sketchtups)
+
+		#alternate which sketch to enumerate from each time
+		if args.pypy:
+			enum_results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
 		else:
-			samples, _scores, _ = model.sampleAndScore(tokenize_for_robustfill([datum.spec]), nRepeats=nRepeats)
-		#print("task", i, "done with rnn, took", time.time()-tnet, "seconds")
-		# only loop over unique samples:
-		samples = {tuple(sample) for sample in samples}  # only 
-	if (not improved_dc_grammar) or (not dcModel):
-		g = basegrammar if not dcModel else dcModel.infer_grammar(datum.spec)  # TODO pp
-		g = untorch(g)
-	sketchtups = []
-	for sample in samples:
-		try:
-			tr = seq_to_tree(sample)
-			#print(tr)
-			sk = tree_to_prog(tr)
-		except Exception as e: # TODO: needs to be fixed
-			print("EXCEPTION IN PARSE:,", e)
-			traceback.print_tb(e.__traceback__)
-			n_checked += 1
-			yield (AlgolispResult(sample, None, False, n_checked, time.time()-t))
-			continue
+			enum_results, n_checked, n_hit = algolisp_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check) #might need more than IO
+		del sketchtups
+		return results + enum_results
 
-		if improved_dc_grammar:
-			g = untorch(dcModel.infer_grammar((datum.spec, sample))) #TODO: make sure this line is correct ..
-		
-		sketchtups.append(SketchTup(sk, g))
+	except EvaluationTimeout:
+		print("Timed out while evaluating task", i)
+		return [AlgolispResult(None, None, False, n_checked, time.time()-t)]
 
-	# only loop over unique sketches:
-	sketchtups = {sk for sk in sketchtups} #fine
-	#print("sketchtups:", sketchtups)
-
-	#alternate which sketch to enumerate from each time
-	if args.pypy:
-		results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
-	else:
-		results, n_checked, n_hit = algolisp_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check) #might need more than IO
-	yield from (result for result in results)
-
-	######TODO: want search time and total time to hit task ######
-	print(f"task {i}:")
-	print(f"evaluation for task {i} took {time.time()-t} seconds")
-	print(f"For task {i}, tried {n_checked} candidates, found {n_hit} hits", flush=True)
+	finally:
+		######TODO: want search time and total time to hit task ######
+		print(f"task {i}:")
+		print(f"evaluation for task {i} took {time.time()-t} seconds")
+		print(f"For task {i}, tried {n_checked} candidates, found {n_hit} hits", flush=True)
+		if timeout is not None:
+			signal.signal(signal.SIGVTALRM, lambda *_: None)
+			signal.setitimer(signal.ITIMER_VIRTUAL, 0)
 
 def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	t = time.time()
@@ -157,7 +179,11 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 				for dat in data_list:
 					inQ.put(dat)
 				# process results
-				return [outQ.get() for _ in range(args.n_test)]
+				res = []
+				# for _ in range(args.n_test):
+				# 	res.append( outQ.get() )
+				# return res
+				return [outQ.get() for _ in range(args.n_test)] #will be an issue if len(data_list) is different than args.n_test
 
 			inQ = Queue()
 			outQ = Queue()
@@ -251,7 +277,7 @@ if __name__=='__main__':
 
 	#this needs to be here for stuped reasons ...
 	def f(i_datum):
-		f_partial = functools.partial(evaluate_datum, model=model, dcModel=dcModel, nRepeats=nSamples, mdl=mdl, max_to_check=max_to_check)
+		f_partial = functools.partial(evaluate_datum, model=model, dcModel=dcModel, nRepeats=nSamples, mdl=mdl, max_to_check=max_to_check, timeout=args.timeout)
 		i, datum = i_datum
 		return (datum, list(f_partial(i,datum)))
 
@@ -271,5 +297,5 @@ if __name__=='__main__':
 
 	file = save_results(results, args)
 
-	plot_result(results=results, plot_time=True, model_path=args.model_path) #doesn't account for changing result thingy
+	#plot_result(results=results, plot_time=True, model_path=args.model_path) #doesn't account for changing result thingy
 

@@ -30,9 +30,10 @@ from utilities import timing
 
 from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab
 from data_src.makeAlgolispData import batchloader
-from util.algolisp_util import tokenize_for_robustfill
+from util.algolisp_util import tokenize_for_robustfill, tree_depth, seq_to_tree
 
 from train.algolisp_train_dc_model import newDcModel
+from collections import Counter
 
 
 
@@ -148,6 +149,24 @@ if __name__ == "__main__":
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
+
+
+    # dataset = batchloader(train_datas,
+    #                                             batchsize=1,
+    #                                             compute_sketches=False,
+    #                                             dc_model=dc_model if use_dc_grammar else None,
+    #                                             improved_dc_model=improved_dc_model,
+    #                                             top_k_sketches=args.top_k_sketches,
+    #                                             inv_temp=args.inv_temp,
+    #                                             reward_fn=reward_fn,
+    #                                             sample_fn=sample_fn,
+    #                                             use_timeout=args.use_timeout,
+    #                                             filter_depth=args.filter_depth)
+
+    # c = Counter()
+    # c.update(tree_depth(seq_to_tree(d.pseq)) for d in dataset)
+    # print(c)
+    # assert False
 
     ####### train with holes ########
     pretraining = args.pretrain and model.pretrain_epochs < args.max_pretrain_epochs
