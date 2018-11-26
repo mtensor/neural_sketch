@@ -16,7 +16,7 @@ AlgolispResult = namedtuple("AlgolispResult", ["sketch", "prog", "hit", "n_check
 
 
 #from algolisp code
-executor_ = executor.LispExecutor()
+#executor_ = executor.LispExecutor()
 
 # #for reference:
 # def get_stats_from_code(args):
@@ -33,7 +33,7 @@ executor_ = executor.LispExecutor()
 # #what is a res?
 
 
-def test_program_on_IO(e, IO, schema_args):
+def test_program_on_IO(e, IO, schema_args, executor_):
 	"""
 	run executor
 	"""
@@ -55,6 +55,7 @@ def alternate(*args):
 
 def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check):
 	results = []
+	executor_ = executor.LispExecutor()
 
 	# empty = all(False for _ in alternate(*(((sk.sketch, x) for x in sk.g.sketchEnumeration(Context.EMPTY, [], tp, sk.sketch, mdl)) for sk in sketchtups)))
 	# if empty:
@@ -73,7 +74,7 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 		_, _, p = xp
 		e = p.evaluate([])
 		#print(e)
-		hit = test_program_on_IO(e, IO, schema_args)
+		hit = test_program_on_IO(e, IO, schema_args, executor_)
 		prog = p if hit else None
 		n_checked += 1
 		n_hit += 1 if hit else 0
@@ -87,6 +88,8 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 			del xp
 			break
 	if n_checked < len(sketchtups) and not hit: print("WARNING: not all candidate sketches checked")
+
+	del executor_
 	return results, n_checked, n_hit
 
 

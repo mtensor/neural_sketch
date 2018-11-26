@@ -67,7 +67,7 @@ class AlgolispHole(Hole):
                                   '<HOLE>')
         return AlgolispHole(), n
 
-def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc_model=False, return_obj=AlgolispHole, dc_input=None, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=False, use_timeout=False):
+def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc_model=False, return_obj=AlgolispHole, dc_input=None, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=False, use_timeout=False, nHoles=4):
     """
     inv_temp==1 => use true mdls
     inv_temp==0 => sample uniformly
@@ -76,15 +76,23 @@ def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc
     if dcModel is None:
         #print("dcModel NONE")
         g = basegrammar
-        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
+        choices = g.enumerateMultipleHoles(request, prog, k=k, return_obj=return_obj, nHoles=nHoles)
     elif dcModel and not improved_dc_model:
         g = dcModel.infer_grammar(dc_input) #(spec, sketch)
-        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
+        choices = g.enumerateMultipleHoles(request, prog, k=k, return_obj=return_obj, nHoles=nHoles)
     else: 
         assert improved_dc_model
         g = basegrammar
-        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj) # request, full, sk
+        #print("time before hole punching", time.time())
+        choices = g.enumerateMultipleHoles(request, prog, k=k, return_obj=return_obj, nHoles=nHoles) # request, full, sk
+        #print("time after hole punching", time.time())
+        # print("probs before grammar inf:")
+        # print( *((sketch.evaluate([]), prob) for sketch, prob in choices), sep='\n')
+        #print("time before hole reweight with dcmodel", time.time())
         choices = [( sketch, dcModel.infer_grammar((dc_input, tree_to_seq(sketch.evaluate([])))).sketchLogLikelihood(tsymbol, prog, sketch)[0] ) for sketch, prob in choices]  #TODO check this
+        #print("time after hole reweight with dcmodel", time.time())
+        # print("probs after grammar inf:")
+        # print( *((sketch.evaluate([]), prob) for sketch, prob in choices), sep='\n')
 
     if len(list(choices)) == 0:
         #if there are none, then use the original program ,

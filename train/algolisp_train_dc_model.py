@@ -56,7 +56,7 @@ if __name__ == "__main__":
     parser.add_argument('--train_data', type=str, default='train')
     parser.add_argument('--use_dc_grammar', action='store_true')
     parser.add_argument('--improved_dc_model', action='store_true', default=True)
-    parser.add_argument('--inv_temp', type=int, default=0.01) #idk what the deal with this is ...
+    parser.add_argument('--inv_temp', type=float, default=0.01) #idk what the deal with this is ...
     parser.add_argument('--use_timeout', action='store_true', default=True)
     parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
     args = parser.parse_args()

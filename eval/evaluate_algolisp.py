@@ -134,6 +134,11 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 		else:
 			enum_results, n_checked, n_hit = algolisp_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check) #might need more than IO
 		del sketchtups
+		#del g
+		if model:
+			del model 
+		if dcModel:
+			del dcModel
 		return results + enum_results
 
 	except EvaluationTimeout:

@@ -29,11 +29,12 @@ from program_synthesis.algolisp import arguments
 
 from util.algolisp_pypy_util import test_program_on_IO
 
+from program_synthesis.algolisp.dataset import executor
 #I want a list of namedTuples
 
 #Datum = namedtuple('Datum', ['tp', 'p', 'pseq', 'IO', 'sketch', 'sketchseq'])
 
-basegrammar = Grammar.fromProductions(algolispProductions())
+basegrammar = Grammar.fromProductions(algolispProductions()) # Fix this
 
 def grouper(iterable, n, fillvalue=None):
 	"Collect data into fixed-length chunks or blocks"
@@ -71,7 +72,8 @@ def convert_datum(ex,
 				use_timeout=False,
 				proper_type=False,
 				only_passable=False,
-				filter_depth=None):
+				filter_depth=None,
+				nHoles=4):
 	if filter_depth:
 		#filter_depth should be an iterable of depths that are allowed
 		if not tree_depth(ex.code_tree) in filter_depth: return None
@@ -80,8 +82,9 @@ def convert_datum(ex,
 	IO = convert_IO(ex.tests) #TODO
 	schema_args = ex.schema.args
 	if only_passable:
-		hit_tree = test_program_on_IO(ex.code_tree, IO, schema_args)
-		hit_seq = test_program_on_IO(seq_to_tree(ex.code_sequence), IO, schema_args)
+		executor_ = executor.LispExecutor()
+		hit_tree = test_program_on_IO(ex.code_tree, IO, schema_args, executor_)
+		hit_seq = test_program_on_IO(seq_to_tree(ex.code_sequence), IO, schema_args, executor_)
 		if not hit_tree==hit_seq: print("DATASET WARNING: tree and seq don't match, one fails tests and the other passes")
 		if not hit_tree: return None
 	# find tp
@@ -102,14 +105,14 @@ def convert_datum(ex,
 		# find sketch
 		#grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO) #This line needs to change
 		dc_input = spec
-		sketch, reward, sketchprob = make_holey_algolisp(p, top_k_sketches, tp, basegrammar=basegrammar, dcModel=dc_model, improved_dc_model=improved_dc_model, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout, return_obj=AlgolispHole, dc_input=dc_input) #TODO
+		sketch, reward, sketchprob = make_holey_algolisp(p, top_k_sketches, tp, basegrammar=basegrammar, dcModel=dc_model, improved_dc_model=improved_dc_model, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout, return_obj=AlgolispHole, dc_input=dc_input, nHoles=nHoles) #TODO
 		# find sketchseq
 		sketchseq = tuple(tree_to_seq(sketch.evaluate([])))
 	else:
 		sketch, sketchseq, reward, sketchprob = None, None, None, None
 	return Datum(tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob, spec, schema_args)
 
-def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False, only_passable=False, filter_depth=None):
+def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False, only_passable=False, filter_depth=None, nHoles=4):
 
 	mode = 'train' if data_file=='train' else 'eval'
 	parser = arguments.get_arg_parser('Training AlgoLisp', mode)
@@ -139,7 +142,8 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 			use_timeout=use_timeout,
 			proper_type=False,
 			only_passable=only_passable,
-			filter_depth=filter_depth) for batch in NearDataset for ex in batch) #I assume batch has one ex
+			filter_depth=filter_depth,
+			nHoles=nHoles) for batch in NearDataset for ex in batch) #I assume batch has one ex
 	data = (x for x in data if x is not None)
 	#figure out how to deal with these
 	if batchsize==1:
