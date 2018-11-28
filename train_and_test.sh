@@ -11,14 +11,14 @@ if [[ "$@" == "--inner" ]]; then
 	#echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --filter_depth 1 2 3 4 5 6 7 --max_epochs 7 --inv_temp 0.05 --nHoles 3 -k 100 --use_dc_grammar)
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --filter_depth 1 2 3 4 5 --max_epochs 14 --inv_temp 0.05 --nHoles 3 -k 50 --use_dc_grammar)
  	echo "dc model training job: $RES_DC"
 
  	#SLEEP if not ready
  	#while [ "$(sacct -j $RES_PRE.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ] && [ "$(sacct -j $RES_DC.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
 	
 	# train model:
-	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_DC -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth 1 2 3 4 5 6 7 --max_epochs 7 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 100 --load_pretrained_model_path '../algolisp_first_all_1542214102049/saved_models/algolisp_pretrained.p')
+	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_DC -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth 1 2 3 4 5 --max_epochs 14 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --load_pretrained_model_path '../algolisp_first_all_1542668797877/saved_models/algolisp_pretrained.p')
 
 
 	#while [ "$(sacct -j $RES_TRAIN.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
@@ -36,7 +36,7 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=algolisp_filter7_k100_t05 g-run bash train_and_test.sh --inner > run.txt & #can i do this??
+	name=algolisp_filter5_k50_t05 g-run bash train_and_test.sh --inner > run.txt & #can i do this??
 fi
 
 
