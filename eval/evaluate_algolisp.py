@@ -120,8 +120,8 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 				continue
 
 			if improved_dc_grammar:
-				g = untorch(dcModel.infer_grammar((datum.spec, sample))) #TODO: make sure this line is correct ..
-			
+				g = untorch(dcModel.infer_grammar((datum.spec, sample))) 
+
 			sketchtups.append(SketchTup(sk, g))
 
 		# only loop over unique sketches:
@@ -136,7 +136,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 		del sketchtups
 		#del g
 		if model:
-			del model 
+			del model
 		if dcModel:
 			del dcModel
 		return results + enum_results

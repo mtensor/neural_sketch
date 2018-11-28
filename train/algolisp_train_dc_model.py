@@ -59,6 +59,7 @@ if __name__ == "__main__":
     parser.add_argument('--inv_temp', type=float, default=0.01) #idk what the deal with this is ...
     parser.add_argument('--use_timeout', action='store_true', default=True)
     parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
+    parser.add_argument('--nHoles', type=int, default=1)
     args = parser.parse_args()
 
     batchsize = 1
@@ -114,6 +115,7 @@ if __name__ == "__main__":
                                                 inv_temp=args.inv_temp,
                                                 reward_fn=None,
                                                 sample_fn=None,
+                                                nHoles=args.nHoles,
                                                 use_timeout=args.use_timeout,
                                                 filter_depth=args.filter_depth)): #TODO
             t = time.time()

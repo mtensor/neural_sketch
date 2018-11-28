@@ -80,16 +80,15 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 		n_hit += 1 if hit else 0
 		if hit: 
 			results.append( AlgolispResult(sketch, prog, hit, n_checked, time.time()-t) )
-			del sIterable
 			break
 		if n_checked >= max_to_check:
-			del sIterable
 			del sketch
 			del xp
 			break
 	if n_checked < len(sketchtups) and not hit: print("WARNING: not all candidate sketches checked")
 
 	del executor_
+	del sIterable
 	return results, n_checked, n_hit
 
 

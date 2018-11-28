@@ -11,14 +11,14 @@ if [[ "$@" == "--inner" ]]; then
 	echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --filter_depth 1 2 3 4 5 --max_epochs 14 --inv_temp 0.05)
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --filter_depth 1 2 3 4 5 --max_epochs 14 --inv_temp 0.05 --nHoles 3 -k 50)
  	echo "dc model training job: $RES_DC"
 
  	#SLEEP if not ready
  	#while [ "$(sacct -j $RES_PRE.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ] && [ "$(sacct -j $RES_DC.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
 	
 	# train model:
-	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE:$RES_DC -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth 1 2 3 4 5 --max_epochs 14 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25)
+	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE:$RES_DC -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth 1 2 3 4 5 --max_epochs 14 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50)
 
 
 	#while [ "$(sacct -j $RES_TRAIN.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
