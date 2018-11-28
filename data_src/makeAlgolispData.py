@@ -36,6 +36,35 @@ from program_synthesis.algolisp.dataset import executor
 
 basegrammar = Grammar.fromProductions(algolispProductions()) # Fix this
 
+with open('basegrammar.p', 'rb') as file:
+	basegrammar = pickle.load(file)
+
+#reweighted basegrammar:
+# class FrontierEntry(object):
+#     def __init__(
+#             self,
+#             program,
+#             _=None,
+#             logPrior=None,
+#             logLikelihood=None,
+#             logPosterior=None):
+#         self.logPosterior = logPrior + logLikelihood if logPosterior is None else logPosterior
+#         self.program = program
+#         self.logPrior = logPrior
+#         self.logLikelihood = logLikelihood
+
+#     def __repr__(self):
+#         return "FrontierEntry(program={self.program}, logPrior={self.logPrior}, logLikelihood={self.logLikelihood}".format(
+#             self=self)
+
+
+# class Frontier(object):
+#     def __init__(self, frontier, task):
+#         self.entries = frontier
+#         self.task = task
+
+
+
 def grouper(iterable, n, fillvalue=None):
 	"Collect data into fixed-length chunks or blocks"
 	# grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
@@ -176,19 +205,42 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 			
 		# 	yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None, specs, schema_args)  # check that his work
 
+from frontier import Frontier, FrontierEntry
+from task import Task
+
+def reweightbasegrammar(basegrammar, pseudoCounts, filter_depth=None, size=None):
+	frontiers = [] 
+	for datum in islice(batchloader('train',
+								batchsize=1,
+								compute_sketches=False,
+								filter_depth=filter_depth), size): #TODO
+		#class Task(object):
+		#def __init__(self, name, request, examples, features=None, cache=False):
+		frontiers.append( Frontier([FrontierEntry(datum.p, logPrior=basegrammar.logLikelihood(datum.tp, datum.p), logLikelihood=0)], Task('dummyName', datum.tp, []) ) )
+	
+	return basegrammar.insideOutside(frontiers, pseudoCounts, iterations=1)
+
+
+
+
 if __name__=='__main__':
 	from itertools import islice
+	# algolispProductions()
+	# d = islice(batchloader('train', batchsize=200, compute_sketches=True, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False),100)
+	# for datum in d:
+	# 	print("program:", datum.p)
+	# 	print("sketch: ", datum.sketch)
+	# 	print(len(datum.pseq))
+	# 	print()
 
+	print(basegrammar)
+	g = reweightbasegrammar(basegrammar, 0.1, filter_depth=None, size=None)
+	print(g)
 
-	algolispProductions()
+	print('saving')
 
-	d = islice(batchloader('train', batchsize=200, compute_sketches=True, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False),100)
-
-	for datum in d:
-		print("program:", datum.p)
-		print("sketch: ", datum.sketch)
-		print(len(datum.pseq))
-		print()
+	with open('basegrammar.p','wb') as savefile:
+		pickle.dump(g, savefile)
 
 
 

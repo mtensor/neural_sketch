@@ -29,3 +29,4 @@ mkdir algolisp_results
 #algolisp
 mkdir program_synthesis/data/generated
 ln -s ../../program_synthesis/data/generated program_synthesis/data/generated 
+ln -s ../../basegrammar.p

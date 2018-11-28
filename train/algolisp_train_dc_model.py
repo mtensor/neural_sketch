@@ -109,7 +109,7 @@ if __name__ == "__main__":
         for i, datum in enumerate(batchloader(train_datas,
                                                 batchsize=1,
                                                 compute_sketches=True,
-                                                dc_model=dcModel if use_dc_grammar else None, # THis means dcModel updated every epoch
+                                                dc_model=dcModel if use_dc_grammar and (dcModel.epochs > 1) else None, # This means dcModel updated every epoch, but not first two
                                                 improved_dc_model=improved_dc_model,
                                                 top_k_sketches=args.k,
                                                 inv_temp=args.inv_temp,
@@ -134,6 +134,7 @@ if __name__ == "__main__":
                     torch.save(dcModel.state_dict(), args.save_model_path+f'_{str(j)}_iter_{str(i)}.p')
                     torch.save(dcModel.state_dict(), args.save_model_path)
         #to prevent overwriting model:
+        dcModel.epochs += 1
         if not args.nosave:
             torch.save(dcModel.state_dict(), args.save_model_path+'_{}.p'.format(str(j)))
             torch.save(dcModel.state_dict(), args.save_model_path)
