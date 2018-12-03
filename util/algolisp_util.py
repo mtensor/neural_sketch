@@ -22,7 +22,7 @@ import time
 from collections import OrderedDict
 #from util import enumerate_reg, Hole
 from grammar import Grammar, NoCandidates
-from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
+from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure, HoleFinder, HolePuncher
 
 import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
@@ -31,41 +31,12 @@ from algolispPrimitives import tsymbol, tconstant, tfunction, primitive_lookup
 
 from program_synthesis.algolisp.dataset import data
 from program_synthesis.algolisp.dataset import executor
+
+from collections import OrderedDict
 #primitive_lookup = {prim.name:prim.name for prim in napsPrimitives()}
 
-def convert_IO(tests):
-    assert False
-
-def tree_to_seq(tree):
-    return data.flatten_lisp_code(tree)  #from algolisp.data
-
-def seq_to_tree(seq):
-    #from algolisp code
-    #try:
-    code, _ = data.unflatten_code(code, 'lisp')
-    #except:
-    #    return None #?
-
-    return code
-
-#def evaluate(seq)
-
-#from algolisp code
-executor_ = executor.LispExecutor()
-
-# #for reference:
-# def get_stats_from_code(args):
-#     res, example, executor_ = args
-#     if len(example.tests) == 0:
-#         return None
-#     if executor_ is not None:
-#         stats = executor.evaluate_code(
-#             res.code_tree if res.code_tree else res.code_sequence, example.schema.args, example.tests,
-#             executor_)
-#         stats['exact-code-match'] = is_same_code(example, res)
-#         stats['correct-program'] = int(stats['tests-executed'] == stats['tests-passed'])
-#     else: assert False
-# #what is a res?
+#get dict of tree: mdl, location
+#given dict, find best sketches
 
 class AlgolispHole(Hole):
     def show(self, isFunction): return "<HOLE>"
@@ -80,23 +51,157 @@ class AlgolispHole(Hole):
                                   '<HOLE>')
         return AlgolispHole(), n
 
-def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc_model=False, return_obj=AlgolispHole, dc_input=None, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=False, use_timeout=False):
+def no_path_conflict(sketch, subtree) -> bool:
+    l2 = len(subtree.path)
+    for tr in sketch:
+        l1 = len(tr.path)
+        if l1 > l2:
+            conflict = (tr.path[:l2] == subtree.path)
+        else:
+            conflict = (tr.path == subtree.path[:l1])
+        if conflict:
+            return False
+    return True
+
+def place_hole(g, p, subtree):
+    return HolePuncher(g, subtree.path, AlgolispHole()).execute(p)
+
+def concretize_sketches_w_mdl(g, sketches, p, tp):
+    #do some stuff
+    choices = [(p, 0.0)]
+    for sketch in sketches:
+        choice = p
+        for subtree in sketch:
+            choice = place_hole(g, choice, subtree)
+        choices.append((choice, mdl_calc(sketch)))
+    return choices
+
+def mdl_calc(sketch):
+    return sum(subtree.mdl for subtree in sketch)
+
+def findsubtrees(g, p, request, k=3, return_obj=Hole):
+    """Enumerate programs with a single hole within mdl distance"""
+    #TODO: make it possible to enumerate sketches with multiple holes
+    def mutations(tp, loss, is_left_application=False):
+        """
+        to allow applications lhs to become a hole,  
+        remove the condition below and ignore all the is_left_application kwds 
+        """
+        if not is_left_application: 
+            yield return_obj(), 0
+    top_k = []
+    for subtree in HoleFinder(g, mutations).execute(p, request):
+        if len(top_k) > 0:
+            i, v = min(enumerate(top_k), key=lambda x:x[1].mdl)
+            if subtree.mdl > v.mdl:
+                if len(top_k) >= k:
+                    top_k[i] = subtree
+                else:
+                    top_k.append(subtree)
+            elif len(top_k) < k:
+                top_k.append(subtree)
+        else:
+            top_k.append(subtree)
+    return sorted(top_k, key=lambda x:-x.mdl)
+
+def top_k_sketches(g, k, nHoles, p, tp, return_obj=AlgolispHole):
+
+    """
+    [X] make HoleFinder output namedtuple 
+    [X] run HoleFinder here
+    [X] rewrite path so that it can be compared w other paths
+    [X] sort output of HoleFinder
+    [ ] make sure you also output the sketch with no holes
+    [ ] test everything
+    [ ] put in correct place in code
+
+    """
+    mem = findsubtrees(g, p, tp, k=k, return_obj=return_obj) #tho it doesn't matter
+    #TURN INTO SUBTREE OBJECTS
+    #print("k",k)
+    sketches = [ (subtree,) for subtree in mem]
+    min_mdl = mdl_calc(sketches[-1])
+    #print("done first part")
+    #for second hole:
+    for _ in range(1, nHoles):
+        #print(len(sketches))
+        additions = []
+        for sketch in sketches:
+            #print('entered loop 2')
+            for subtree in mem:
+                #print('entered loop 3')
+                if mdl_calc(sketch + (subtree,)) < min_mdl: break
+                if no_path_conflict(sketch, subtree): 
+                    additions.append(sketch + (subtree,) )
+        #print('started sorting')
+        #print(len(additions))
+        sketches = sorted(sketches+additions, key=lambda x: -mdl_calc(x))[:k] #TODO
+        min_mdl = mdl_calc(sketches[-1])
+    #print("done loop")
+    choices = concretize_sketches_w_mdl(g, sketches, p, tp)
+
+    return choices
+
+
+def tokenize_for_robustfill(specs):
+    return [[spec] for spec in specs]
+
+def convert_IO(tests):
+    return tests
+
+def tree_to_seq(tree):
+    return data.flatten_lisp_code(tree)  #from algolisp.data
+
+def seq_to_tree(seq):
+    #from algolisp code
+    code, _ = data.unflatten_code(seq, 'lisp')
+    return code
+
+def tree_depth(tree):
+    depth = 0
+    for x in tree:
+        if type(x)==list:
+            depth = max(tree_depth(x), depth)
+    return depth + 1
+
+
+
+def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc_model=False, return_obj=AlgolispHole, dc_input=None, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=False, use_timeout=False, nHoles=4):
     """
     inv_temp==1 => use true mdls
     inv_temp==0 => sample uniformly
     0 < inv_temp < 1 ==> something in between
     """ 
     if dcModel is None:
+        #print("dcModel NONE")
         g = basegrammar
-        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
+        #choices = g.enumerateMultipleHoles(request, prog, k=k, return_obj=return_obj, nHoles=nHoles)
+        choices = top_k_sketches(g, k, nHoles, prog, request, return_obj=return_obj)
     elif dcModel and not improved_dc_model:
-        g = dc_model.infer_grammar(dc_input) #This line needs to change
-        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
+        g = dcModel.infer_grammar(dc_input) #(spec, sketch)
+        #choices = g.enumerateMultipleHoles(request, prog, k=k, return_obj=return_obj, nHoles=nHoles)
+        choices = top_k_sketches(g, k, nHoles, prog, request, return_obj=return_obj)
     else: 
         assert improved_dc_model
         g = basegrammar
-        choices = g.enumerateHoles(request, prog, k=k, return_obj=return_obj)
-        choices = [sketch, dc_model.infer_grammar((dc_input, tree_to_seq(sketch.evaluate([])))).sketchLogLikelihood(sketch)  for sketch, prob in choices]  #TODO check this
+        #print("time before hole punching", time.time())
+        #choices = g.enumerateMultipleHoles(request, prog, k=k, return_obj=return_obj, nHoles=nHoles) # request, full, sk
+        #print( *((sk.evaluate([]), mdl) for sk, mdl in choices), sep='\n')    
+        choices = top_k_sketches(g, k, nHoles, prog, request, return_obj=return_obj)
+        #print("NEW")
+        #print( *((sk.evaluate([]), mdl) for sk, mdl in choices), sep='\n')
+        #print(choices)
+        #print("time after hole punching", time.time())
+        # print("probs before grammar inf:")
+        # print( *((sketch.evaluate([]), prob) for sketch, prob in choices), sep='\n')
+        #print("time before hole reweight with dcmodel", time.time())
+        choices = [( sketch, dcModel.infer_grammar((dc_input, tree_to_seq(sketch.evaluate([])))).sketchLogLikelihood(tsymbol, prog, sketch)[0] ) for sketch, prob in choices]  #TODO check this
+        #print( *((sk.evaluate([]), mdl) for sk, mdl in choices), sep='\n')
+        #assert False
+        #print(choices)
+        #print("time after hole reweight with dcmodel", time.time())
+        # print("probs after grammar inf:")
+        # print( *((sketch.evaluate([]), prob) for sketch, prob in choices), sep='\n')
 
     if len(list(choices)) == 0:
         #if there are none, then use the original program ,
@@ -147,7 +252,7 @@ def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc
         return prog_reward_probs[0] #outputs prog, prob
 
 
-def tree_to_ec(tree):
+def tree_to_prog(tree):
 
     def init_arg_list(expr):
         #convert to symbol
@@ -158,8 +263,12 @@ def tree_to_ec(tree):
             symb = Application(Primitive.GLOBALS["symbol_constant"], expr)
         elif tp == tfunction:
             symb = Application(Primitive.GLOBALS["symbol_function"], expr)
+        elif expr.isHole:
+            symb = expr
         else:
-            print(tp)
+            print("unsupported expression:")
+            print("type:", tp)
+            print("expr:", expr)
             assert False
 
         return Application(Primitive.GLOBALS["list_init_symbol"], symb) #TODO
@@ -173,8 +282,12 @@ def tree_to_ec(tree):
             symb = Application(Primitive.GLOBALS["symbol_constant"], expr)
         elif tp == tfunction:
             symb = Application(Primitive.GLOBALS["symbol_function"], expr)
+        elif expr.isHole:
+            symb = expr
         else:
-            print(tp)
+            print("unsupported expression:")
+            print("type:", tp)
+            print("expr:", expr)
             assert False
 
         return Application(Application(Primitive.GLOBALS["list_add_symbol"], symb), args)#TODO
@@ -216,7 +329,12 @@ def tree_to_ec(tree):
         elif l == '<HOLE>': #TODO
             return AlgolispHole()
         else:
-            assert False
+            if not l==" ":
+                print("l is not space")
+                l.__repr__()
+            if not l=="\t":
+                print("l is not tab")
+            assert False, f"uncaught item: {l}"
         #elif l == variable name:
         #    assert False
 
@@ -239,7 +357,7 @@ if __name__=='__main__':
     tree = p.evaluate([])
     print(tree)
 
-    prog = tree_to_ec(tree)
+    prog = tree_to_prog(tree)
     print(prog)
 
 

@@ -134,7 +134,7 @@ class RecurrentFeatureExtractor(nn.Module):
         for j, e in enumerate(es):
             es[j] += [self.endingIndex] * (m - len(e))
 
-        x = variable(es, cuda=self.use_cuda)
+        x = variable(es, cuda=next(self.encoder.parameters()).is_cuda) #checks if encoder is cuda'd or not
         x = self.encoder(x)
         # x: (batch size, maximum length, E)
         x = x.permute(1, 0, 2)
@@ -466,19 +466,22 @@ class ImprovedRecognitionModel(RecognitionModel): # TODO change name
 
     def loss(self, rec_input, program, sketch, request):
         g = self.infer_grammar(rec_input)
-
         ll, _ = g.sketchLogLikelihood(request, program, sketch)
-        return - ll
+        #print(ll)
+        return -ll
 
 
     def optimizer_step(self, rec_input, program, sketch, request):
         #print("Warning, no batching yet")
-        self.opt.zero_grad()
-        loss = self.loss(rec_input, program, sketch, request) #can throw in a .mean() here when you are batching
-        loss.backward()
-        self.opt.step()
-
-        return loss.data.item()
+        if program == sketch: 
+            print("prog == sketch, no opt")
+            return 0.
+        else:
+            self.opt.zero_grad()
+            loss = self.loss(rec_input, program, sketch, request) #can throw in a .mean() here when you are batching
+            loss.backward()
+            self.opt.step()
+            return loss.data.item()
 
     def infer_grammar(self, rec_input):
         features = self.featureExtractor.featuresOfExamples(rec_input)
