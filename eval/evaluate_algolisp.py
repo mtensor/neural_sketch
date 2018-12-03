@@ -27,11 +27,12 @@ from itertools import islice
 
 from torch.multiprocessing import Pool, Queue, Process
 import functools
-import traceback
 
 from task import Task, EvaluationTimeout
 import signal
 
+from memory_profiler import profile
+import traceback
 #train & use dcModel
 #which requires converting programs to EC domain
 parser = argparse.ArgumentParser()
@@ -58,6 +59,7 @@ parser.add_argument('--queue', action='store_true')
 parser.add_argument('--only_passable', action='store_true')
 parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
 parser.add_argument('--timeout', type=int, default=None)
+parser.add_argument('--debug', action='store_true')
 args = parser.parse_args()
 
 args.cpu = args.cpu or args.parallel #if parallel, then it must be cpu only
@@ -66,7 +68,8 @@ mdl = args.mdl
 nExamples = args.n_examples #TODO
 max_to_check = args.max_to_check
 improved_dc_grammar = args.improved_dc_grammar
-if improved_dc_grammar: assert args.dcModel
+if args.dcModel: improved_dc_grammar = True
+#if improved_dc_grammar: assert args.dcModel
 
 #args.chunksize=args.n_test/args.n_processes
 
@@ -78,6 +81,8 @@ def untorch(g):
                                [ (l.data.tolist()[0], t, p)
                                  for l, t, p in g.productions])
 
+
+#@profile
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeout=None):
 	try:
 		if timeout is not None:
@@ -113,8 +118,10 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 				#print(tr)
 				sk = tree_to_prog(tr)
 			except Exception as e: # TODO: needs to be fixed
+				traceback.clear_frames(e.__traceback__)
 				print("EXCEPTION IN PARSE:,", e)
 				#traceback.print_tb(e.__traceback__)
+				del e
 				n_checked += 1
 				results.append( AlgolispResult(sample, None, False, n_checked, time.time()-t) )
 				continue
@@ -154,6 +161,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 			signal.signal(signal.SIGVTALRM, lambda *_: None)
 			signal.setitimer(signal.ITIMER_VIRTUAL, 0)
 
+
 def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	t = time.time()
 	if model is None:
@@ -173,6 +181,30 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 						    break;
 						# process the data
 						ret = f(val)
+
+						if args.debug:
+
+							from pympler import summary
+							from pympler import muppy
+							all_objects = muppy.get_objects()
+							sum1 = summary.summarize(all_objects)
+							print("summary:")
+							summary.print_(sum1)
+
+							from pympler import tracker
+							tr = tracker.SummaryTracker()
+							print("diff:")
+							tr.print_diff()
+
+							# import objgraph
+							# print("growth:")
+							# objgraph.show_growth()
+							# print("most common types:")
+							# objgraph.show_most_common_types()
+
+							# print("leaky objects:")
+							# roots = objgraph.get_leaking_objects()
+							# objgraph.show_most_common_types(objects=roots)
 						# send the response / results
 						outQ.put( ret )
 					except Exception as e:
@@ -193,14 +225,20 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 			inQ = Queue()
 			outQ = Queue()
 			# instantiate workers
-			workers = [Process(target=consumer, args=(inQ,outQ))
+
+			# if not args.n_queues:
+			# queue_size = int(args.n_test/args.n_queues)
+			# resuts_list = [] 
+			# for x in range(n_queues):
+
+			workers = [Process(target=consumer, args=(inQ, outQ))
 			           for i in range(args.n_processes)]
 			# start the workers
 			for w in workers:
 			    w.start()
 			# gather some data
 			data_list = enumerate(dataset)
-			results_list = process_data(data_list, inQ, outQ)
+			results_list = process_data(data_list, inQ, outQ) #can just also have lenght of list
 			# tell all workers, no more data (one msg for each)
 			for i in range(args.n_processes):
 			    inQ.put(None)

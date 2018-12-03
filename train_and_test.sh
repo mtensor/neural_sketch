@@ -40,6 +40,9 @@ else
 fi
 
 
+
+#python -i eval/evaluate_algolisp.py --n_test 9807 --only_passable --queue --n_processes 28 --timeout 600 --max_to_check 20000
+
 # use --dependency=afterok:jobid[:jobid...] (https://hpc.nih.gov/docs/job_dependencies.html)
 
 #sbatch --parsable -e 'train_early.out' -o 'train_early.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth 1 2 3 4 5 6 7 --max_epochs 7 --use_dc_grammar './saved_models/algolisp_dc_model.p_early_start'

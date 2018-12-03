@@ -141,7 +141,7 @@ def convert_datum(ex,
 		sketch, sketchseq, reward, sketchprob = None, None, None, None
 	return Datum(tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob, spec, schema_args)
 
-def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False, only_passable=False, filter_depth=None, nHoles=1):
+def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False, only_passable=False, filter_depth=None, nHoles=1, limit_data=False):
 
 	mode = 'train' if data_file=='train' else 'eval'
 	parser = arguments.get_arg_parser('Training AlgoLisp', mode)
@@ -160,6 +160,14 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 	else:
 		assert False
 
+
+	def remove_datum():
+		if limit_data:
+			return not bool(random.sample(p=limit_data, seed=42)) # TODO: make sure seed is contained here, I think
+			# TODO
+		else: 
+			return False
+
 	data = (convert_datum(ex,
 			compute_sketches=compute_sketches,
 			top_k_sketches=top_k_sketches,
@@ -172,7 +180,7 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 			proper_type=False,
 			only_passable=only_passable,
 			filter_depth=filter_depth,
-			nHoles=nHoles) for batch in NearDataset for ex in batch) #I assume batch has one ex
+			nHoles=nHoles) for batch in NearDataset for ex in batch if not remove_datum() ) #I assume batch has one ex
 	data = (x for x in data if x is not None)
 	#figure out how to deal with these
 	if batchsize==1:
@@ -241,9 +249,3 @@ if __name__=='__main__':
 
 	with open('basegrammar.p','wb') as savefile:
 		pickle.dump(g, savefile)
-
-
-
-
-
-

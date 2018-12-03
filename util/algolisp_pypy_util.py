@@ -10,6 +10,7 @@ from itertools import islice, zip_longest
 from functools import reduce
 
 from program_synthesis.algolisp.dataset import executor
+#from memory_profiler import profile
 
 SketchTup = namedtuple("SketchTup", ['sketch', 'g'])
 AlgolispResult = namedtuple("AlgolispResult", ["sketch", "prog", "hit", "n_checked", "time"])
@@ -51,8 +52,6 @@ def alternate(*args):
 				yield item
 
 
-
-
 def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check):
 	results = []
 	executor_ = executor.LispExecutor()
@@ -71,7 +70,7 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 
 	hit = False
 	for sketch, xp in alternate(* sIterable ):
-		_, _, p = xp
+		_, _, p = xpcp
 		e = p.evaluate([])
 		#print(e)
 		hit = test_program_on_IO(e, IO, schema_args, executor_)
@@ -89,6 +88,10 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 
 	del executor_
 	del sIterable
+	del f
+	#print("ex cache len:")
+	#print(len(executor.code_lisp._EXECUTION_CACHE))
+	executor.code_lisp._EXECUTION_CACHE = {}
 	return results, n_checked, n_hit
 
 

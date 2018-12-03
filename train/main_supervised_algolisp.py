@@ -88,6 +88,13 @@ parser.add_argument('--num_half_lifes', type=float, default=4)
 parser.add_argument('--use_timeout', action='store_true')
 parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
 parser.add_argument('--nHoles', type=int, default=1)
+
+parser.add_argument('--limit_data', type=float, default=False)
+parser.add_argument('--train_to_convergence', action='store_true')
+
+parser.add_argument('--convergence_mode', type=str, default='dev')
+parser.add_argument('--limit_val_data', type=float, default=0.01) 
+
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
@@ -140,6 +147,8 @@ if __name__ == "__main__":
         model.iteration = 0
         model.hole_scores = []
         model.epochs = 0
+        model.pretrain_val_scores = [float('-inf')]
+        model.val_scores = [float('-inf')]
 
     if use_dc_grammar:
         print("loading dc model")
@@ -189,7 +198,8 @@ if __name__ == "__main__":
                                                 sample_fn=sample_fn,
                                                 use_timeout=args.use_timeout,
                                                 filter_depth=args.filter_depth,
-                                                nHoles=args.nHoles)):
+                                                nHoles=args.nHoles,
+                                                limit_data=args.limit_data)):
             specs = tokenize_for_robustfill(batch.specs)
             if i==0: print("batchsize:", len(specs))
             if args.timing: t = time.time()
@@ -217,6 +227,34 @@ if __name__ == "__main__":
             torch.save(model, path)
         if pretraining: model.pretrain_epochs += 1
         else: model.epochs += 1
+
+        if args.train_to_convergence:
+            val_objective = 0
+            for batch in batchloader(args.convergence_mode,
+                        batchsize=batchsize,
+                        compute_sketches=not pretraining,
+                        dc_model=dc_model if use_dc_grammar else None,
+                        improved_dc_model=improved_dc_model,
+                        top_k_sketches=args.top_k_sketches,
+                        inv_temp=args.inv_temp,
+                        reward_fn=reward_fn,
+                        sample_fn=sample_fn,
+                        use_timeout=args.use_timeout,
+                        filter_depth=args.filter_depth,
+                        nHoles=args.nHoles,
+                        limit_data=args.val_limit_data): #TODO
+                val_objective, _ += model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
+            print("epoch", model.epoch, "score:", val_objective, flush=True)
+            if pretraining:
+                model.pretrain_val_scores.append(val_objective)
+            else:
+                model.val_scores.append(val_objective)
+
+            if val_objective < ( model.pretrain_val_scores[-2] if pretraining else model.val_scores[-2]): #TODO
+                if pretraining: pretraining = False
+                else: training = False
+
+        #switch from training to pretraining
         if model.pretrain_epochs >= args.max_pretrain_epochs: pretraining = False
         if model.epochs >= args.max_epochs: training = False
 
