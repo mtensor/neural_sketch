@@ -228,6 +228,7 @@ if __name__ == "__main__":
         if pretraining: model.pretrain_epochs += 1
         else: model.epochs += 1
 
+        #code for determining if training to convergence
         if args.train_to_convergence:
             val_objective = 0
             for batch in batchloader(args.convergence_mode,
@@ -242,7 +243,8 @@ if __name__ == "__main__":
                         use_timeout=args.use_timeout,
                         filter_depth=args.filter_depth,
                         nHoles=args.nHoles,
-                        limit_data=args.val_limit_data): #TODO
+                        limit_data=args.val_limit_data,
+                        use_fixed_seed=True): #TODO
                 val_objective, _ += model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
             print("epoch", model.epoch, "score:", val_objective, flush=True)
             if pretraining:

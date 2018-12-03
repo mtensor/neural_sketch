@@ -102,7 +102,9 @@ def convert_datum(ex,
 				proper_type=False,
 				only_passable=False,
 				filter_depth=None,
-				nHoles=4):
+				nHoles=4,
+				use_fixed_seed=False,
+				rng=None):
 	if filter_depth:
 		#filter_depth should be an iterable of depths that are allowed
 		if not tree_depth(ex.code_tree) in filter_depth: return None
@@ -134,14 +136,43 @@ def convert_datum(ex,
 		# find sketch
 		#grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO) #This line needs to change
 		dc_input = spec
-		sketch, reward, sketchprob = make_holey_algolisp(p, top_k_sketches, tp, basegrammar=basegrammar, dcModel=dc_model, improved_dc_model=improved_dc_model, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout, return_obj=AlgolispHole, dc_input=dc_input, nHoles=nHoles) #TODO
+		sketch, reward, sketchprob = make_holey_algolisp(p,
+														top_k_sketches,
+														tp,
+														basegrammar=basegrammar,
+														dcModel=dc_model,
+														improved_dc_model=improved_dc_model,
+														inv_temp=inv_temp,
+														reward_fn=reward_fn,
+														sample_fn=sample_fn,
+														use_timeout=use_timeout,
+														return_obj=AlgolispHole,
+														dc_input=dc_input,
+														nHoles=nHoles,
+														use_fixed_seed=use_fixed_seed,
+														rng=rng) #TODO
 		# find sketchseq
 		sketchseq = tuple(tree_to_seq(sketch.evaluate([])))
 	else:
 		sketch, sketchseq, reward, sketchprob = None, None, None, None
 	return Datum(tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob, spec, schema_args)
 
-def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None, improved_dc_model=True, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False, only_passable=False, filter_depth=None, nHoles=1, limit_data=False):
+def batchloader(data_file,
+				batchsize=100,
+				compute_sketches=False,
+				dc_model=None,
+				improved_dc_model=True,
+				shuffle=True,
+				top_k_sketches=20,
+				inv_temp=1.0,
+				reward_fn=None,
+				sample_fn=None,
+				use_timeout=False,
+				only_passable=False,
+				filter_depth=None,
+				nHoles=1,
+				limit_data=False,
+				use_fixed_seed=False):
 
 	mode = 'train' if data_file=='train' else 'eval'
 	parser = arguments.get_arg_parser('Training AlgoLisp', mode)
@@ -160,11 +191,11 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 	else:
 		assert False
 
+	seeded_random = random.Random(42) #so that state is shared
 
 	def remove_datum():
 		if limit_data:
-			return not bool(random.sample(p=limit_data, seed=42)) # TODO: make sure seed is contained here, I think
-			# TODO
+			return not seeded_random.random() < limit_data
 		else: 
 			return False
 
@@ -180,7 +211,9 @@ def batchloader(data_file, batchsize=100, compute_sketches=False, dc_model=None,
 			proper_type=False,
 			only_passable=only_passable,
 			filter_depth=filter_depth,
-			nHoles=nHoles) for batch in NearDataset for ex in batch if not remove_datum() ) #I assume batch has one ex
+			nHoles=nHoles,
+			use_fixed_seed=use_fixed_seed,
+			rng=seeded_random if use_fixed_seed else None) for batch in NearDataset for ex in batch if not remove_datum() ) #I assume batch has one ex
 	data = (x for x in data if x is not None)
 	#figure out how to deal with these
 	if batchsize==1:
