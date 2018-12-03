@@ -213,14 +213,14 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 
 			def process_data(data_list, inQ, outQ):
 				# send pos/data to workers
-				for dat in data_list:
+				for i, dat in enumerate(data_list):
 					inQ.put(dat)
 				# process results
 				res = []
 				# for _ in range(args.n_test):
 				# 	res.append( outQ.get() )
 				# return res
-				return [outQ.get() for _ in range(args.n_test)] #will be an issue if len(data_list) is different than args.n_test
+				return [outQ.get() for _ in range(i+1)]
 
 			inQ = Queue()
 			outQ = Queue()
@@ -328,7 +328,7 @@ if __name__=='__main__':
 
 	# count hits
 	hits = sum(any(result.hit for result in result_list) for result_list in results.values())
-	print(f"hits: {hits} out of {args.n_test}, or {100*hits/args.n_test}% accuracy")
+	print(f"hits: {hits} out of {len(results)}, or {100*hits/len(results)}% accuracy")
 
 	# I want a plot of the form: %solved vs n_hits
 	x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 400, 600, 800, 900, 1000, 2000, 4000]  # TODO

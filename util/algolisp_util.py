@@ -15,7 +15,6 @@ from torch import nn, optim
 
 from pinn import RobustFill
 from pinn import SyntaxCheckingRobustFill
-import random
 import math
 import time
 
@@ -166,12 +165,29 @@ def tree_depth(tree):
 
 
 
-def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc_model=False, return_obj=AlgolispHole, dc_input=None, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=False, use_timeout=False, nHoles=4):
+def make_holey_algolisp(prog,
+                        k,
+                        request,
+                        basegrammar,
+                        dcModel=None,
+                        improved_dc_model=False,
+                        return_obj=AlgolispHole,
+                        dc_input=None,
+                        inv_temp=1.0,
+                        reward_fn=None,
+                        sample_fn=None,
+                        verbose=False,
+                        use_timeout=False,
+                        nHoles=4,
+                        use_fixed_seed=False,
+                        rng=None):
     """
     inv_temp==1 => use true mdls
     inv_temp==0 => sample uniformly
     0 < inv_temp < 1 ==> something in between
     """ 
+
+
     if dcModel is None:
         #print("dcModel NONE")
         g = basegrammar
@@ -213,7 +229,7 @@ def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc
 
     if use_timeout:
         # sample timeout
-        r = random.random()
+        r = random.random() if not use_fixed_seed else rng.random()
         t = -math.log(r)/inv_temp
 
         cs = list(zip(progs, [-w for w in weights]))
@@ -224,7 +240,7 @@ def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc
         _, max_w = max(below_cutoff_choices, key=lambda item: item[1])
 
         options = [(p, None, None) for p, w in below_cutoff_choices if w==max_w]
-        x = random.choices(options, k=1)
+        x = random.choices(options, k=1) if not use_fixed_seed else rng.choices(options, k=1)
         return x[0]
     else:
     #normalize weights, and then rezip
@@ -246,7 +262,7 @@ def make_holey_algolisp(prog, k, request, basegrammar, dcModel=None, improved_dc
             print(p, prob)
 
     if k > 1:
-        x = random.choices(prog_reward_probs, weights=weights, k=1)
+        x = random.choices(prog_reward_probs, weights=weights, k=1) if not use_fixed_seed else rng.choices(prog_reward_probs, weights=weights, k=1)
         return x[0] #outputs prog, prob
     else:
         return prog_reward_probs[0] #outputs prog, prob
