@@ -7,18 +7,19 @@ if [[ "$@" == "--inner" ]]; then
 	which python
 
 	#Only pretrain
-	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 15 --limit_data 0.2 --train_to_convergence)
+	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 15 --limit_data 0.10 --train_to_convergence)
 	echo "pretraining job: $RES_PRE"
 
+
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --limit_data 0.2 --max_epochs 15 --inv_temp 0.05 --nHoles 3 -k 50 --use_dc_grammar)
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --limit_data 0.10 --max_epochs 15 --inv_temp 0.05 --nHoles 3 -k 50 --use_dc_grammar)
  	echo "dc model training job: $RES_DC"
 
  	#SLEEP if not ready
  	#while [ "$(sacct -j $RES_PRE.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ] && [ "$(sacct -j $RES_DC.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
 	
 	# train model:
-	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_DC:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --limit_data 0.2 --train_to_convergence --max_epochs 15 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 )
+	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_DC:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --limit_data 0.10 --train_to_convergence --max_epochs 15 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout)
 
 
 	#while [ "$(sacct -j $RES_TRAIN.batch --format State --parsable | tail -n 1)" != "COMPLETED|" ]; do sleep 5; done
@@ -36,13 +37,21 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=algolisp_limit20_first_run g-run bash train_and_test.sh --inner > run.txt & #can i do this??
+	name=algolisp_limit10_first_run g-run bash train_and_test.sh --inner > run.txt & #can i do this??
 fi
 
 
+#RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 15 --limit_data 0.2 --train_to_convergence)
+
+#RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --limit_data 0.2 --train_to_convergence --max_epochs 15 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout)
+
+#sbatch --dependency=afterok:$RES_TRAIN -e 'eval.out' -o 'eval.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9807 --only_passable --queue --n_processes 44 --timeout 600 --max_to_check 20000
+
+#sbatch --dependency=afterok:$RES_PRE -e 'evalrnn.out' -o 'evalrnn.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9807 --only_passable --model_path "./saved_models/algolisp_pretrained.p" --resultsfile "first_rnn_algolisp_results_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
+
 
 #python -i eval/evaluate_algolisp.py --n_test 9807 --only_passable --queue --n_processes 28 --timeout 600 --max_to_check 20000
-
+#
 # use --dependency=afterok:jobid[:jobid...] (https://hpc.nih.gov/docs/job_dependencies.html)
 
 #sbatch --parsable -e 'train_early.out' -o 'train_early.out' execute_gpu.sh python train/main_supervised_algolisp.py --filter_depth 1 2 3 4 5 6 7 --max_epochs 7 --use_dc_grammar './saved_models/algolisp_dc_model.p_early_start'

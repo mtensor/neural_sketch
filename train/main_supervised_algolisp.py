@@ -93,7 +93,8 @@ parser.add_argument('--limit_data', type=float, default=False)
 parser.add_argument('--train_to_convergence', action='store_true')
 
 parser.add_argument('--convergence_mode', type=str, default='eval')
-parser.add_argument('--limit_val_data', type=float, default=0.01) 
+parser.add_argument('--limit_val_data', type=float, default=0.02)
+parser.add_argument('--converge_after', type=int, default=5)
 
 args = parser.parse_args()
 
@@ -229,7 +230,7 @@ if __name__ == "__main__":
         else: model.epochs += 1
 
         #code for determining if training to convergence
-        if args.train_to_convergence:
+        if args.train_to_convergence and j >= args.converge_after: #completed at least 3 epochs ... 
             val_objective = 0
             for batch in batchloader(args.convergence_mode,
                         batchsize=batchsize,
@@ -243,10 +244,12 @@ if __name__ == "__main__":
                         use_timeout=args.use_timeout,
                         filter_depth=args.filter_depth,
                         nHoles=args.nHoles,
-                        limit_data=args.val_limit_data,
+                        limit_data=args.limit_val_data,
                         use_fixed_seed=True): #TODO
-                val_objective, _ += model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
-            print("epoch", model.epoch, "score:", val_objective, flush=True)
+                specs = tokenize_for_robustfill(batch.specs)
+                val_objective_iter, _ = model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
+                val_objective += val_objective_iter.mean()
+            print("epoch", model.pretrain_epochs if pretraining else model.epochs, "score:", val_objective, flush=True)
             if pretraining:
                 model.pretrain_val_scores.append(val_objective)
             else:
