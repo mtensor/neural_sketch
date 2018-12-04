@@ -49,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--nosave', action='store_true')
     parser.add_argument('-k', type=int, default=40) #TODO
-    parser.add_argument('--max_epochs', type=int, default=7)
+    parser.add_argument('--max_epochs', type=int, default=10)
     parser.add_argument('--save_model_path', type=str, default='./saved_models/algolisp_dc_model.p')
     parser.add_argument('--load_model_path', type=str, default='./saved_models/algolisp_dc_model.p')
     parser.add_argument('--new', action='store_true')
@@ -60,6 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_timeout', action='store_true', default=True)
     parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
     parser.add_argument('--nHoles', type=int, default=1)
+    parser.add_argument('--limit_data', type=float, default=False)
     args = parser.parse_args()
 
     batchsize = 1
@@ -117,7 +118,8 @@ if __name__ == "__main__":
                                                 sample_fn=None,
                                                 nHoles=args.nHoles,
                                                 use_timeout=args.use_timeout,
-                                                filter_depth=args.filter_depth)): #TODO
+                                                filter_depth=args.filter_depth,
+                                                limit_data=args.limit_data)): #TODO
             t = time.time()
             t3 = t-t2
             #score = dcModel.optimizer_step(datum.IO, datum.p, datum.tp) #TODO make sure inputs are correctly formatted

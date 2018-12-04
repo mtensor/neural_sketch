@@ -92,7 +92,7 @@ parser.add_argument('--nHoles', type=int, default=1)
 parser.add_argument('--limit_data', type=float, default=False)
 parser.add_argument('--train_to_convergence', action='store_true')
 
-parser.add_argument('--convergence_mode', type=str, default='dev')
+parser.add_argument('--convergence_mode', type=str, default='eval')
 parser.add_argument('--limit_val_data', type=float, default=0.01) 
 
 args = parser.parse_args()
