@@ -70,7 +70,7 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 
 	hit = False
 	for sketch, xp in alternate(* sIterable ):
-		_, _, p = xpcp
+		_, _, p = xp
 		e = p.evaluate([])
 		#print(e)
 		hit = test_program_on_IO(e, IO, schema_args, executor_)
