@@ -96,6 +96,9 @@ parser.add_argument('--convergence_mode', type=str, default='eval')
 parser.add_argument('--limit_val_data', type=float, default=0.02)
 parser.add_argument('--converge_after', type=int, default=5)
 
+parser.add_argument('--load_trained_model', action='store_true')
+parser.add_argument('--load_trained_model_path', type=str, default="./saved_models/algolisp_holes.p")
+
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
@@ -133,6 +136,9 @@ if __name__ == "__main__":
     print("Loading model", flush=True)
     try:
         if args.new: raise FileNotFoundError
+        elif args.load_trained_model:
+            model=torch.load(args.load_trained_model_path)
+            print("loading saved trained model, continuing training")
         else:
             model=torch.load(args.load_pretrained_model_path)
             print('found saved model, loaded pretrained model (without holes)')
