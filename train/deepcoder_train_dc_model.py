@@ -50,6 +50,7 @@ parser.add_argument('--inv_temp', type=float, default=0.1) #idk what the deal wi
 parser.add_argument('--use_timeout', action='store_true', default=True)
 parser.add_argument('--nHoles', type=int, default=1)
 parser.add_argument('--use_dc_grammar', action='store_true')
+parser.add_argument('--max_iterations', type=int, default=100000000)
 args = parser.parse_args()
 
 max_length = 30
@@ -130,6 +131,9 @@ if __name__ == "__main__":
             #print(datum.sketch)
             dcModel.scores.append(score)
             dcModel.iteration += 1
+            if dcModel.iteration > args.max_iterations:
+                print('done training')
+                break
             if i%500==0 and not i==0:
                 print("pretrain iteration", i, "average score:", sum(dcModel.scores[-500:])/500, flush=True)
                 print(f"network time: {t2-t}, other time: {t3}")
@@ -139,6 +143,7 @@ if __name__ == "__main__":
                 if not args.nosave:
                     torch.save(dcModel, args.save_model_path+f'_{str(j)}_iter_{str(i)}.p')
                     torch.save(dcModel, args.save_model_path)
+
         #to prevent overwriting model:
         if not args.nosave:
             torch.save(dcModel, args.save_model_path+'_{}.p'.format(str(j)))
