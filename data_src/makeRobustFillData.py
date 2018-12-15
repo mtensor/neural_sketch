@@ -3,7 +3,7 @@
 import pickle
 # TODO
 from util.deepcoder_util import make_holey_deepcoder # this might be enough
-from util.robustfill_util import basegrammar # TODO
+#from util.robustfill_util import basegrammar # TODO
 from util.robustfill_util import sample_program, generate_IO_examples, timing # TODO
 
 import time
@@ -24,6 +24,7 @@ from itertools import zip_longest, chain, repeat, islice
 from functools import reduce
 import torch
 from makeTextTasks import makeTasks, loadPBETasks
+from util.algolisp_util import make_holey_algolisp
 
 
 class Datum():
@@ -43,11 +44,23 @@ class Datum():
 Batch = namedtuple('Batch', ['tps', 'ps', 'pseqs', 'IOs', 'sketchs', 'sketchseqs', 'rewards', 'sketchprobs'])
 
 
-def sample_datum(g=basegrammar, N=5, V=100, L=10, compute_sketches=False, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None, use_timeout=False):
+def sample_datum(basegrammar,
+					N=5,
+					V=100,
+					L=10,
+					compute_sketches=False,
+					top_k_sketches=100,
+					inv_temp=1.0,
+					reward_fn=None,
+					sample_fn=None,
+					dc_model=None,
+					use_timeout=False,
+					improved_dc_model=False,
+					nHoles=1):
 
 	#sample a program:
 	#with timing("sample program"):
-	program = sample_program(g, max_len=L, max_string_size=V)  # TODO
+	program = sample_program(g=basegrammar, max_len=L, max_string_size=V)  # TODO
 	# if program is bad: return None  # TODO
 
 	# find IO
@@ -64,9 +77,31 @@ def sample_datum(g=basegrammar, N=5, V=100, L=10, compute_sketches=False, top_k_
 
 	if compute_sketches:
 		# find sketch
-		grammar = g if not dc_model else dc_model.infer_grammar(IO)
+		#grammar = g if not dc_model else dc_model.infer_grammar(IO)
 		#with timing("make_holey"):
-		sketch, reward, sketchprob = make_holey_deepcoder(program, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) #TODO
+		# sketch, reward, sketchprob = make_holey_deepcoder(program,
+		# 													top_k_sketches,
+		# 													grammar,
+		# 													tp,
+		# 													inv_temp=inv_temp,
+		# 													reward_fn=reward_fn,
+		# 													sample_fn=sample_fn,
+		# 													use_timeout=use_timeout) #TODO
+
+		sketch, reward, sketchprob = make_holey_algolisp(program,
+													top_k_sketches,
+													tp,
+													basegrammar,
+													dcModel=dc_model,
+													improved_dc_model=improved_dc_model,
+													return_obj=Hole,
+													dc_input=IO,
+													inv_temp=inv_temp,
+													reward_fn=reward_fn,
+													sample_fn=sample_fn,
+													use_timeout=use_timeout,
+													nHoles=nHoles,
+													domain='text')
 
 		# find sketchseq
 		sketchseq = tuple(flatten_program(sketch))
@@ -82,15 +117,55 @@ def grouper(iterable, n, fillvalue=None):
 	args = [iter(iterable)] * n
 	return zip_longest(*args, fillvalue=fillvalue)
 
-def batchloader(size, batchsize=100, g=basegrammar, N=5, V=100, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
-	if batchsize==1:
-		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) for _ in repeat(0))
-		yield from islice((x for x in data if x is not None), size)
-	else:
-		data = (sample_datum(g=g, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) for _ in repeat(0))
-		data = (x for x in data if x is not None)
-		grouped_data = islice(grouper(data, batchsize), size)
 
+# max_iteration - dcModel.iteration,
+#                                                 batchsize=1,
+#                                                 g=basegrammar,
+#                                                 N=args.n_examples,
+#                                                 V=args.max_length,
+#                                                 L=args.max_list_length, 
+#                                                 compute_sketches=args.improved_dc_model,
+#                                                 dc_model=dcModel if use_dc_grammar and (dcModel.epochs > 1) else None, # TODO
+#                                                 improved_dc_model=args.improved_dc_model,
+#                                                 top_k_sketches=args.k,
+#                                                 inv_temp=args.inv_temp,
+#                                                 nHoles=args.nHoles,
+#                                                 use_timeout=args.use_timeout
+
+def batchloader(size,
+				basegrammar,
+				batchsize=100,
+				N=5,
+				V=100,
+				L=10,
+				compute_sketches=False,
+				dc_model=None,
+				shuffle=True, 
+				top_k_sketches=20,
+				inv_temp=1.0,
+				reward_fn=None,
+				sample_fn=None,
+				use_timeout=False,
+				improved_dc_model=False,
+				nHoles=1):
+	data = (sample_datum(basegrammar,
+							N=N,
+							V=V,
+							L=L,
+							compute_sketches=compute_sketches,
+							dc_model=dc_model,
+							top_k_sketches=20,
+							inv_temp=inv_temp,
+							reward_fn=reward_fn,
+							sample_fn=sample_fn,
+							use_timeout=use_timeout,
+							improved_dc_model=improved_dc_model,
+							nHoles=nHoles) for _ in repeat(0))
+	data = (x for x in data if x is not None)
+	if batchsize==1:	
+		yield from islice(data, size)
+	else:
+		grouped_data = islice(grouper(data, batchsize), size)
 		for group in grouped_data:
 			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob) for datum in group if datum is not None])
 			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None)  # check that his works 

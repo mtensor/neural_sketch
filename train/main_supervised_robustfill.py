@@ -44,7 +44,7 @@ parser.add_argument('--variance_reduction', action='store_true')
 parser.add_argument('-k', type=int, default=50) #TODO
 parser.add_argument('--new', action='store_true')
 parser.add_argument('--rnn_max_length', type=int, default=20)  # TODO
-parser.add_argument('--batchsize', type=int, default=100)
+parser.add_argument('--batchsize', type=int, default=50)
 parser.add_argument('--max_length', type=int, default=25)
 parser.add_argument('--n_examples', type=int, default=4)
 parser.add_argument('--max_list_length', type=int, default=10)
@@ -55,9 +55,9 @@ parser.add_argument('--max_pretrain_iteration', type=int, default=400*5*2)
 parser.add_argument('--max_iteration', type=int, default=400*5*2)
 parser.add_argument('--train_data',type=str,default='NA')
 # save and load files
-parser.add_argument('--load_pretrained_model_path', type=str, default="./saved_models/robustfill_pretrained.p")
-parser.add_argument('--save_pretrained_model_path', type=str, default="./saved_models/robustfill_pretrained.p")
-parser.add_argument('--save_model_path', type=str, default="./saved_models/robustfill_holes.p")
+parser.add_argument('--load_pretrained_model_path', type=str, default="./saved_models/text_pretrained.p")
+parser.add_argument('--save_pretrained_model_path', type=str, default="./saved_models/text_pretrained.p")
+parser.add_argument('--save_model_path', type=str, default="./saved_models/text_holes.p")
 parser.add_argument('--save_freq', type=int, default=200)
 parser.add_argument('--print_freq', type=int, default=1)
 parser.add_argument('--top_k_sketches', type=int, default=100)
@@ -73,6 +73,10 @@ parser.add_argument('--r_max', type=int, default=8)
 parser.add_argument('--timing', action='store_true')
 parser.add_argument('--num_half_lifes', type=float, default=4)
 parser.add_argument('--use_timeout', action='store_true')
+
+parser.add_argument('--improved_dc_model', action='store_true')
+parser.add_argument('--nHoles', type=int, default=3)
+
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
@@ -108,8 +112,6 @@ else:
 
 basegrammar = Grammar.fromProductions(RobustFillProductions(args.max_length, args.max_index))
 
-
-
 vocab = robustfill_vocab(basegrammar)
 
 if __name__ == "__main__":
@@ -131,7 +133,7 @@ if __name__ == "__main__":
 
     if use_dc_grammar:
         print("loading dc model")
-        dc_model = load_rb_dc_model_from_path(dc_model_path, args.max_length, args.max_index)
+        dc_model = load_rb_dc_model_from_path(dc_model_path, args.max_length, args.max_index, args.improved_dc_model, cuda=True)
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -157,7 +159,7 @@ if __name__ == "__main__":
         print("pretraining:", pretraining)
         print("iter to train:", iter_remaining)
         for i, batch in zip(range(iter_remaining), batchloader(iter_remaining,
-                                                g=basegrammar,
+                                                basegrammar,
                                                 batchsize=batchsize,
                                                 N=args.n_examples,
                                                 V=max_length,
@@ -168,7 +170,9 @@ if __name__ == "__main__":
                                                 inv_temp=args.inv_temp,
                                                 reward_fn=reward_fn,
                                                 sample_fn=sample_fn,
-                                                use_timeout=args.use_timeout)):
+                                                use_timeout=args.use_timeout,
+                                                improved_dc_model=args.improved_dc_model,
+                                                nHoles=args.nHoles)):
             IOs = tokenize_for_robustfill(batch.IOs)
             if args.timing: t = time.time()
             if not pretraining and args.use_rl:

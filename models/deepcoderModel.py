@@ -22,6 +22,7 @@ from string import printable
 
 from recognition import GrammarNetwork, ContextualGrammarNetwork, RecognitionModel
 from grammar import ContextualGrammar
+from util.robustfill_util import robustfill_vocab
 
 #from main_supervised_deepcoder import deepcoder_io_vocab #TODO
 def _relu(x): return x.clamp(min=0)
@@ -146,6 +147,7 @@ class RecurrentFeatureExtractor(nn.Module):
         examples = sorted(examples, key=lambda xs_y: sum(
             len(z) + 1 for z in xs_y[0]) + len(xs_y[1]), reverse=True)
         x, sizes = self.packExamples(examples)
+        self.model.flatten_parameters()
         outputs, hidden = self.model(x)
         # outputs, sizes = pad_packed_sequence(outputs)
         # I don't know whether to return the final output or the final hidden
@@ -455,7 +457,13 @@ class ImprovedRecognitionModel(RecognitionModel): # TODO change name
             cuda=False,
             contextual=False): #TODO implement this
 
-        super(ImprovedRecognitionModel, self).__init__(featureExtractor, grammar, hidden=hidden,activation=activation,cuda=cuda,contextual=contextual)
+        super(ImprovedRecognitionModel, self).__init__(
+            featureExtractor,
+            grammar,
+            hidden=hidden,
+            activation=activation,
+            cuda=cuda,
+            contextual=contextual)
 
         self.opt = torch.optim.Adam(
             self.parameters(), lr=0.0001, eps=1e-3, amsgrad=True)
@@ -490,13 +498,22 @@ class ImprovedRecognitionModel(RecognitionModel): # TODO change name
 
 
 
-def load_rb_dc_model_from_path(path, max_length, max_index):
-
+def load_rb_dc_model_from_path(path, max_length, max_index, improved_dc_grammar, cuda=True):
     basegrammar = Grammar.fromProductions(RobustFillProductions(max_length, max_index))
-    extractor = RobustFillLearnedFeatureExtractor(printable[:-4], hidden=128)  # probably want to make it much deeper .... 
-    dcModel = DeepcoderRecognitionModel(extractor, basegrammar, hidden=[128], cuda=True)  # probably want to make it much deeper .... 
+
+    if improved_dc_grammar:
+        specExtractor = RobustFillLearnedFeatureExtractor(printable[:-4], hidden=128, use_cuda=cuda)
+        vocab = robustfill_vocab(basegrammar)
+        sketchExtractor = SketchFeatureExtractor(vocab, hidden=128, use_cuda=cuda)
+        extractor = HoleSpecificFeatureExtractor(specExtractor, sketchExtractor, hidden=128, use_cuda=cuda)
+        dcModel = ImprovedRecognitionModel(extractor, basegrammar, hidden=[128], cuda=cuda, contextual=False)
+    else:
+        extractor = RobustFillLearnedFeatureExtractor(printable[:-4], hidden=128)  # probably want to make it much deeper .... 
+        dcModel = DeepcoderRecognitionModel(extractor, basegrammar, hidden=[128], cuda=True)  # probably want to make it much deeper .... 
+    
     dcModel.load_state_dict(torch.load(path))
     return dcModel
+
 
 if __name__ == '__main__':
 
@@ -513,7 +530,14 @@ if __name__ == '__main__':
 
     d = None
     while not d:
-        d = sample_datum(g=basegrammar, N=4, compute_sketches=True, top_k_sketches=100, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None)
+        d = sample_datum(g=basegrammar,
+            N=4,
+            compute_sketches=True,
+            top_k_sketches=100,
+            inv_temp=1.0,
+            reward_fn=None,
+            sample_fn=None,
+            dc_model=None)
 
     input_vocab = printable[:-4]
     exampleExtractor = RegexFeatureExtractor(input_vocab, hidden=128)

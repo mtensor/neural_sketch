@@ -26,7 +26,7 @@ from program import Application, Hole, Primitive, Index, Abstraction, ParseFailu
 import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from algolispPrimitives import tsymbol, tconstant, tfunction, primitive_lookup
-
+from deepcoderPrimitives import flatten_program
 
 from program_synthesis.algolisp.dataset import data
 from program_synthesis.algolisp.dataset import executor
@@ -62,16 +62,16 @@ def no_path_conflict(sketch, subtree) -> bool:
             return False
     return True
 
-def place_hole(g, p, subtree):
-    return HolePuncher(g, subtree.path, AlgolispHole()).execute(p)
+def place_hole(g, p, subtree, return_obj=AlgolispHole):
+    return HolePuncher(g, subtree.path, return_obj()).execute(p)
 
-def concretize_sketches_w_mdl(g, sketches, p, tp):
+def concretize_sketches_w_mdl(g, sketches, p, tp, return_obj=AlgolispHole):
     #do some stuff
     choices = [(p, 0.0)]
     for sketch in sketches:
         choice = p
         for subtree in sketch:
-            choice = place_hole(g, choice, subtree)
+            choice = place_hole(g, choice, subtree, return_obj=return_obj)
         choices.append((choice, mdl_calc(sketch)))
     return choices
 
@@ -120,24 +120,17 @@ def top_k_sketches(g, k, nHoles, p, tp, return_obj=AlgolispHole):
     #print("k",k)
     sketches = [ (subtree,) for subtree in mem]
     min_mdl = mdl_calc(sketches[-1])
-    #print("done first part")
-    #for second hole:
     for _ in range(1, nHoles):
-        #print(len(sketches))
         additions = []
         for sketch in sketches:
-            #print('entered loop 2')
             for subtree in mem:
-                #print('entered loop 3')
                 if mdl_calc(sketch + (subtree,)) < min_mdl: break
                 if no_path_conflict(sketch, subtree): 
                     additions.append(sketch + (subtree,) )
-        #print('started sorting')
-        #print(len(additions))
         sketches = sorted(sketches+additions, key=lambda x: -mdl_calc(x))[:k] #TODO
         min_mdl = mdl_calc(sketches[-1])
     #print("done loop")
-    choices = concretize_sketches_w_mdl(g, sketches, p, tp)
+    choices = concretize_sketches_w_mdl(g, sketches, p, tp, return_obj=return_obj)
 
     return choices
 
@@ -163,8 +156,6 @@ def tree_depth(tree):
             depth = max(tree_depth(x), depth)
     return depth + 1
 
-
-
 def make_holey_algolisp(prog,
                         k,
                         request,
@@ -180,14 +171,13 @@ def make_holey_algolisp(prog,
                         use_timeout=False,
                         nHoles=4,
                         use_fixed_seed=False,
-                        rng=None):
+                        rng=None,
+                        domain='algolisp'):
     """
     inv_temp==1 => use true mdls
     inv_temp==0 => sample uniformly
     0 < inv_temp < 1 ==> something in between
     """ 
-
-
     if dcModel is None:
         #print("dcModel NONE")
         g = basegrammar
@@ -200,24 +190,23 @@ def make_holey_algolisp(prog,
     else: 
         assert improved_dc_model
         g = basegrammar
-        #print("time before hole punching", time.time())
-        #choices = g.enumerateMultipleHoles(request, prog, k=k, return_obj=return_obj, nHoles=nHoles) # request, full, sk
-        #print( *((sk.evaluate([]), mdl) for sk, mdl in choices), sep='\n')    
+        
         choices = top_k_sketches(g, k, nHoles, prog, request, return_obj=return_obj)
-        #print("NEW")
-        #print( *((sk.evaluate([]), mdl) for sk, mdl in choices), sep='\n')
-        #print(choices)
-        #print("time after hole punching", time.time())
-        # print("probs before grammar inf:")
-        # print( *((sketch.evaluate([]), prob) for sketch, prob in choices), sep='\n')
-        #print("time before hole reweight with dcmodel", time.time())
-        choices = [( sketch, dcModel.infer_grammar((dc_input, tree_to_seq(sketch.evaluate([])))).sketchLogLikelihood(tsymbol, prog, sketch)[0] ) for sketch, prob in choices]  #TODO check this
-        #print( *((sk.evaluate([]), mdl) for sk, mdl in choices), sep='\n')
-        #assert False
-        #print(choices)
-        #print("time after hole reweight with dcmodel", time.time())
-        # print("probs after grammar inf:")
-        # print( *((sketch.evaluate([]), prob) for sketch, prob in choices), sep='\n')
+        
+        # REWRITE:
+        if domain=='algolisp':
+            choices = [( sketch, dcModel.infer_grammar((dc_input, tree_to_seq(sketch.evaluate([])))).sketchLogLikelihood(tsymbol, prog, sketch)[0] ) for sketch, prob in choices] 
+        elif domain=='list' or domain=='text':
+            # print("debug prints:")
+            # print([sketch for sketch, _ in choices])
+            # print(dc_input)
+            # print(prog)
+            # print(request)
+            #t = time.time()
+            choices = [( sketch, dcModel.infer_grammar((dc_input, tuple(flatten_program(sketch)) )).sketchLogLikelihood(request, prog, sketch)[0] ) for sketch, prob in choices]  #TODO check this
+            #print("time for top_k_sketches:", time.time() - t)
+        else:
+            assert False
 
     if len(list(choices)) == 0:
         #if there are none, then use the original program ,
