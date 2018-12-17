@@ -15,11 +15,11 @@ if [[ "$@" == "--inner" ]]; then
  	echo "dc model training job: $RES_DC"
 
 	# train model:
-	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_DC -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_deepcoder.py --max_epochs 1 --max_iterations 16000 --use_dc_model './saved_models/list_dc_model.p' --improved_dc_model --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --timing  --load_pretrained_model_path ../deepcoder_pretrained_T44_1539221782494/saved_models/deepcoder_pretrained_T44.p --train_data data/DeepCoder_data/T44.txt)
+	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_DC -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_deepcoder.py --max_epochs 1 --max_iterations 16000 --use_dc_grammar './saved_models/list_dc_model.p' --improved_dc_model --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --timing  --load_pretrained_model_path ../deepcoder_pretrained_T44_1539221782494/saved_models/deepcoder_pretrained_T44.p --train_data data/DeepCoder_data/T44.txt)
 
 	# test model
 	echo "Eval job:"
-	sbatch --dependency=afterok:$RES_TRAIN -e 'eval.out' -o 'eval.out' execute_public_cpu.sh python eval/evaluate_deepcoder.py --max_to_check 20000 --dcModel --improved_dc_grammar --precomputed_data_file './data/T44_test_new.p'
+	sbatch --dependency=afterok:$RES_TRAIN -e 'eval.out' -o 'eval.out' execute_public_cpu.sh python eval/evaluate_deepcoder.py --max_to_check 20000 --dcModel --improved_dc_grammar --precomputed_data_file '/data/data/T44_test_new.p'
 
 	echo "Eval rnn job:"
 	#sbatch --dependency=afterok:$RES_PRE -e 'evalrnn.out' -o 'evalrnn.out' execute_public_cpu.sh python eval/evaluate_deepcoder.py  --max_to_check 20000 --dcModel --improved_dc_grammar --model_path "./saved_models/list_pretrained.p" --resultsfile "multihole_list_results_base" --max_to_check 20000
@@ -30,8 +30,13 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=deepcoder_multihole_T44_1experiment g-run vim & #can i do this??
+	name=deepcoder_multihole_T44_1experiment g-run bash list_train_and_test.sh --inner > run.txt & #can i do this??
 fi
 
 
 # python train/main_supervised_deepcoder.py --max_epochs 10 --use_dc_grammar './saved_models/list_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --improved_dc_model --load_pretrained_model_path experiments/deepcoder_pretrained_V128_10_epochs_1536681569098/deepcoder_pretrained.p_9.p)
+
+sbatch --dependency=afterok:12566010 -e 'eval.out' -o 'eval.out' execute_public_cpu.sh python eval/evaluate_deepcoder.py --max_to_check 20000 --dcModel --improved_dc_grammar --precomputed_data_file '/data/data/T44_test_new.p'
+
+
+#sbatch -e 'eval.out' -o 'eval.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9807 --only_passable --queue --n_processes 44 --timeout 1000 --max_to_check 20000
