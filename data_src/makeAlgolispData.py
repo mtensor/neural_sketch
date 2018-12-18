@@ -186,7 +186,7 @@ def batchloader(data_file,
 	elif data_file == 'dev':
 		_, NearDataset = dataset.get_dataset(args)
 	elif data_file == 'eval':
-		print("WARNING: right now 'eval' gives 'dev' test set")
+		print("WARNING: right now 'eval' gives correct 'eval' test set")
 		NearDataset = dataset.get_eval_dataset(args) # TODO:
 	else:
 		assert False
@@ -274,6 +274,16 @@ if __name__=='__main__':
 	# 	print(len(datum.pseq))
 	# 	print()
 
+
+	for i, _ in enumerate(batchloader('eval',
+				batchsize=1,
+				compute_sketches=False,
+				only_passable=True)):
+		continue
+
+	print(i+1, "programs")
+
+	assert False
 	print(basegrammar)
 	g = reweightbasegrammar(basegrammar, 0.1, filter_depth=None, size=None)
 	print(g)

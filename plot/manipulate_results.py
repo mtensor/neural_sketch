@@ -24,6 +24,23 @@ plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
 
 mem_problem_list = ['results/dc_T45_0.25_800k_pypy.p', 'results/dc_T34_0.25_2M_pypy.p', 'results/dc_T45_0.25_2M_pypy.p']
 
+def solve_time_percentile(results, percentile, use_misses=False):
+	import numpy as np
+	#gather the list of times:
+	time_list = [] 
+	for result_list in results.values():
+			candidates = [ result.time for result in result_list if result.hit]
+			if len(candidates) > 0:
+				min_val = min( candidates)
+				time_list.append(min_val)
+			elif use_misses:
+				min_val = float('inf')
+				time_list.append(min_val)
+			else: #do nothing, because don't add to list
+				pass
+	#sum(any(result.hit and result.time <= time for result in result_list) for result_list in results.values())/len(results)
+	return np.percentile(time_list, percentile)
+
 def percent_solved_n_checked(results, n_checked):
 	return sum(any(result.hit and result.n_checked <= n_checked for result in result_list) for result_list in results.values())/len(results)
 	#speed this up!!!

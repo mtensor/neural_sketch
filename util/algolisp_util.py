@@ -138,6 +138,48 @@ def top_k_sketches(g, k, nHoles, p, tp, return_obj=AlgolispHole):
 def tokenize_for_robustfill(specs):
     return [[spec] for spec in specs]
 
+def deal_with_inputs(thing):
+    #whatever this is, output a list
+    if type(thing) == bool:
+        return [thing]
+    if type(thing) == int:
+        # if thing > 100000000000:
+        #     assert False, thing
+        return [thing]
+    if type(thing) == chr:
+        return [chr]
+    if type(thing) == str:
+        return list(thing)
+
+    if type(thing) == list:
+        rval = ['LIST_START']
+        for th in thing:
+            rval.extend(deal_with_inputs(th))
+        rval.append('LIST_END')
+        return rval
+
+def tokenize_for_dc(io):
+    ex = []
+    #ensure it's sorted
+    xs = sorted( io['input'].items(), key=lambda x: x[0])
+    for var, x in xs:
+        ex.append("VAR"+var)
+        ex.extend(deal_with_inputs(x))
+    #now do outputs
+    ex.append('OUTPUT')
+    ex.extend( deal_with_inputs( io['output']))
+    return ex
+
+def tokenize_IO_for_robustfill(IOs):
+    #need list of lists
+    out = []
+    for IO in IOs:
+        tokenized = []
+        for io in IO:
+            tokenized.append(tokenize_for_dc(io))
+        out.append(tokenized)
+    return out
+
 def convert_IO(tests):
     return tests
 

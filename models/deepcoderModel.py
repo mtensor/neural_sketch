@@ -24,6 +24,8 @@ from recognition import GrammarNetwork, ContextualGrammarNetwork, RecognitionMod
 from grammar import ContextualGrammar
 from util.robustfill_util import robustfill_vocab
 
+from util.algolisp_util import tokenize_for_dc
+
 #from main_supervised_deepcoder import deepcoder_io_vocab #TODO
 def _relu(x): return x.clamp(min=0)
 
@@ -301,6 +303,23 @@ class RegexFeatureExtractor(RecurrentFeatureExtractor):
                                                         bidirectional=True)
         self.MAXINPUTS = 10
 
+class AlgolispIOFeatureExtractor(RecurrentFeatureExtractor):
+    def tokenize(self, IO):
+        #for example in examples:
+        return [([], tokenize_for_dc(example)) for example in IO]
+
+    def __init__(self, lexicon, hidden=128, use_cuda=True): #was(self, tasks)
+        self.lexicon = set(lexicon)
+        self.USE_CUDA = use_cuda
+        self.H = hidden
+
+        super(RegexFeatureExtractor, self).__init__(lexicon=list(lexicon),
+                                                        cuda=self.USE_CUDA,
+                                                        H=self.H,
+                                                        bidirectional=True)
+        self.MAXINPUTS = 10
+
+
 class HoleSpecificFeatureExtractor(nn.Module):
 
     def __init__(self, exampleExtractor, sketchExtractor, hidden=128, use_cuda=True):
@@ -555,7 +574,4 @@ if __name__ == '__main__':
     g = deepcoderModel.infer_grammar((d.IO, d.sketchseq))
     print(g)
 
-    #dcModel = load_rb_dc_model_from_path('experiments/rb_first_train_dc_model_1537064318549/rb_dc_model.pstate_dict',25,4)
-    #g = dcModel.infer_grammar(d.IO)
-    #print("from pretrained")
-    #print(g)
+

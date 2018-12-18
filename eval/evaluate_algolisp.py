@@ -16,11 +16,11 @@ import dill
 import copy
 
 from util.algolisp_pypy_util import AlgolispResult, SketchTup, alternate, pypy_enumerate, algolisp_enumerate #TODO
-from util.algolisp_util import tokenize_for_robustfill, seq_to_tree, tree_to_prog, tree_depth  # TODO
+from util.algolisp_util import tokenize_for_robustfill, seq_to_tree, tree_to_prog, tree_depth, tokenize_IO_for_robustfill  # TODO
 from data_src.makeAlgolispData import batchloader, basegrammar
 from train.algolisp_train_dc_model import newDcModel
 
-from plot.manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
+from plot.manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result, solve_time_percentile
 
 from grammar import Grammar
 from itertools import islice
@@ -36,7 +36,7 @@ import traceback
 #train & use dcModel
 #which requires converting programs to EC domain
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_test', type=int, default=10819) #only_passable length is 9807
+parser.add_argument('--n_test', type=int, default=9967) #only_passable length is 9807 for dev, 8903 for eval, total eval is 9967
 parser.add_argument('--dcModel', action='store_true', default=True)
 parser.add_argument('--dcModel_path',type=str, default="./saved_models/algolisp_dc_model.p")
 parser.add_argument('--improved_dc_grammar', action='store_true', default=True)
@@ -60,6 +60,7 @@ parser.add_argument('--only_passable', action='store_true')
 parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
 parser.add_argument('--timeout', type=int, default=None)
 parser.add_argument('--debug', action='store_true')
+parser.add_argument('--IO2seq', action='store_true')
 args = parser.parse_args()
 
 args.cpu = args.cpu or args.parallel #if parallel, then it must be cpu only
@@ -101,15 +102,16 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 			torch.set_num_threads(1)
 			tnet = time.time()
 			#print("task", i, "started using rnn")
+			spec = tokenize_for_robustfill([datum.spec]) if not args.IO2seq else tokenize_IO_for_robustfill([datum.IO])
 			if args.beam:
-				samples, _scores = model.beam_decode(tokenize_for_robustfill([datum.spec]), beam_size=nRepeats)
+				samples, _scores = model.beam_decode(spec, beam_size=nRepeats)
 			else:
-				samples, _scores, _ = model.sampleAndScore(tokenize_for_robustfill([datum.spec]), nRepeats=nRepeats)
+				samples, _scores, _ = model.sampleAndScore(spec, nRepeats=nRepeats)
 			#print("task", i, "done with rnn, took", time.time()-tnet, "seconds")
 			# only loop over unique samples:
 			samples = {tuple(sample) for sample in samples}  # only 
 		if (not improved_dc_grammar) or (not dcModel):
-			g = basegrammar if not dcModel else dcModel.infer_grammar(datum.spec)  # TODO pp
+			g = basegrammar if not dcModel else dcModel.infer_grammar((datum.spec if not args.IO2seq else datum.IO))  # TODO pp
 			g = untorch(g)
 		sketchtups = []
 		for sample in samples:
@@ -127,7 +129,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 				continue
 
 			if improved_dc_grammar:
-				g = untorch(dcModel.infer_grammar((datum.spec, sample))) 
+				g = untorch(dcModel.infer_grammar(( (datum.spec if not args.IO2seq else datum.IO), sample))) 
 
 			sketchtups.append(SketchTup(sk, g))
 
@@ -331,14 +333,51 @@ if __name__=='__main__':
 	print(f"hits: {hits} out of {len(results)}, or {100*hits/len(results)}% accuracy")
 
 	# I want a plot of the form: %solved vs n_hits
-	x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 400, 600, 800, 900, 1000, 2000, 4000]  # TODO
-	y_axis = [percent_solved_n_checked(results, x) for x in x_axis]
+	# x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 400, 600, 800, 900, 1000, 2000, 4000]  # TODO
+	# y_axis = [percent_solved_n_checked(results, x) for x in x_axis]
 
-	print("percent solved vs number of evaluated programs")
-	print("num_checked:", x_axis)
-	print("num_solved:", y_axis)
+	# print("percent solved vs number of evaluated programs")
+	# print("num_checked:", x_axis)
+	# print("num_solved:", y_axis)
 
 	file = save_results(results, args)
+
+	print("25th percentile solve time:")
+	print(solve_time_percentile(results, 25, use_misses=False))
+
+	print("median solve time:")
+	print(solve_time_percentile(results, 50, use_misses=False))
+
+	print("75th percentile solve time:")
+	print(solve_time_percentile(results, 75, use_misses=False))
+
+	print("FILTERED:")
+	filt_list = list(islice(batchloader(args.dataset,
+											batchsize=1,
+											compute_sketches=False,
+											only_passable=True), args.n_test))
+	filtered_results = {key: val for key, val in results.items() if any(key == filt for filt in filt_list)}
+
+	filtered_hits = sum(any(result.hit for result in result_list) for result_list in filtered_results.values())
+
+
+	from util.algolisp_pypy_util import test_program_on_IO
+	from program_synthesis.algolisp.dataset import executor
+
+	executor_ = executor.LispExecutor()
+	filtered_results = {key: val for key, val in results.items() if test_program_on_IO(key.p.evaluate([]), key.IO, key.schema_args, executor_)}
+	print(f"hits: {filtered_hits} out of {len(filtered_results)}, or {100*filtered_hits/len(filtered_results)}% accuracy")
+
+	file = save_results(results, args)
+
+	print("25th percentile solve time:")
+	print(solve_time_percentile(filtered_results, 25, use_misses=False))
+
+	print("median solve time:")
+	print(solve_time_percentile(filtered_results, 50, use_misses=False))
+
+	print("75th percentile solve time:")
+	print(solve_time_percentile(filtered_results, 75, use_misses=False))
 
 	#plot_result(results=results, plot_time=True, model_path=args.model_path) #doesn't account for changing result thingy
 
