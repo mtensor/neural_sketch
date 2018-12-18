@@ -29,15 +29,13 @@ from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 #from util.deepcoder_util import parseprogram, grammar
 from data_src.makeAlgolispData import batchloader, basegrammar
 
-from models.deepcoderModel import SketchFeatureExtractor, HoleSpecificFeatureExtractor, ImprovedRecognitionModel
+from models.deepcoderModel import SketchFeatureExtractor, HoleSpecificFeatureExtractor, ImprovedRecognitionModel, AlgolispIOFeatureExtractor
 
 #   from deepcoderModel import 
 
 
 def newDcModel(cuda=True, IO2seq=False):
     if IO2seq:
-        assert False
-
         input_vocab =  algolisp_IO_vocab# TODO
         algolisp_vocab =  list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
         specExtractor = AlgolispIOFeatureExtractor(input_vocab, hidden=128, use_cuda=cuda) # Is this okay? max length

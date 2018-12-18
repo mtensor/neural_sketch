@@ -313,7 +313,7 @@ class AlgolispIOFeatureExtractor(RecurrentFeatureExtractor):
         self.USE_CUDA = use_cuda
         self.H = hidden
 
-        super(RegexFeatureExtractor, self).__init__(lexicon=list(lexicon),
+        super(AlgolispIOFeatureExtractor, self).__init__(lexicon=list(lexicon),
                                                         cuda=self.USE_CUDA,
                                                         H=self.H,
                                                         bidirectional=True)

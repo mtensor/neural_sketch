@@ -131,7 +131,7 @@ else:
 improved_dc_model = args.improved_dc_model
 
 vocab = list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
-inputvocab = algolisp_input_vocab if not args.IO2seq else algolisp_IO_vocab#TODO
+inputvocab = algolisp_input_vocab if not args.IO2seq else list(algolisp_IO_vocab)#TODO
 
 if __name__ == "__main__":
     print("Loading model", flush=True)

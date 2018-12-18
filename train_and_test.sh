@@ -7,15 +7,15 @@ if [[ "$@" == "--inner" ]]; then
 	which python
 
 	#Only pretrain
-	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 10 --train_to_convergence --converge_after 5 --seq2IO)
+	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 10 --train_to_convergence --converge_after 5 --seq2IO --batchsize 16)
 	echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --max_epochs 10 --inv_temp 0.05 --nHoles 3 -k 50 --use_dc_grammar --seq2IO)
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --max_epochs 10 --inv_temp 0.05 --nHoles 3 -k 50 --use_dc_grammar --seq2IO )
  	echo "dc model training job: $RES_DC"
 
 	# train model:
-	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --train_to_convergence --converge_after 5 --max_epochs 10 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --seq2IO)
+	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --train_to_convergence --converge_after 5 --max_epochs 10 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --seq2IO --batchsize 16)
 
 
 	# test model
