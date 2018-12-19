@@ -275,7 +275,7 @@ if __name__=='__main__':
 	# 	print()
 
 
-	for i, _ in enumerate(batchloader('eval',
+	for i, d in enumerate(batchloader('eval',
 				batchsize=1,
 				compute_sketches=False,
 				only_passable=True)):

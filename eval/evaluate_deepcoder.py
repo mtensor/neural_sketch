@@ -51,7 +51,7 @@ parser.add_argument('--mdl', type=int, default=14)  #9
 parser.add_argument('--n_examples', type=int, default=5)
 parser.add_argument('--Vrange', type=int, default=128)
 parser.add_argument('--precomputed_data_file', type=str, default='data/prelim_val_data_new.p')
-parser.add_argument('--model_path', type=str, default="./saved_models/deepcoder_holes.p")
+parser.add_argument('--model_path', type=str, default="./saved_models/list_holes.p")
 parser.add_argument('--max_to_check', type=int, default=5000)
 parser.add_argument('--resultsfile', type=str, default='NA')
 parser.add_argument('--shuffled', action='store_true')
@@ -115,7 +115,8 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	#print(len(sketches))
 	#print(sketches)
 	#alternate which sketch to enumerate from each time
-
+	print(len(sketchtups))
+	print([sk.sketch for sk in sketchtups], sep='\n')
 	enum_results, n_checked, n_hit = pypy_enumerate(untorch(g), datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
 	
 	print(f"task {i}:")
