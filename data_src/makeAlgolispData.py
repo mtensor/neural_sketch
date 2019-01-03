@@ -204,6 +204,7 @@ def batchloader(data_file,
 
 	def remove_datum():
 		if use_dataset_len:
+			nonlocal counter
 			rval = counter not in inc_list
 			counter += 1
 			return rval
