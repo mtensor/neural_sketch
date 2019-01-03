@@ -201,6 +201,7 @@ def batchloader(data_file,
 	if use_dataset_len:
 		inc_list = seeded_random.sample(range(dataset_len), use_dataset_len)
 		counter = 0
+
 	def remove_datum():
 		if use_dataset_len:
 			rval = counter not in inc_list
@@ -210,9 +211,7 @@ def batchloader(data_file,
 			if limit_data:
 				return not seeded_random.random() < limit_data
 			else: 
-				yield False
-
-
+				return False
 
 	data = (convert_datum(ex,
 			compute_sketches=compute_sketches,
