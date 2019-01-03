@@ -11,7 +11,7 @@ if [[ "$@" == "--inner" ]]; then
 	echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --seed 42 --use_dataset_len 4000 --max_epochs 25 --inv_temp 0.05 --nHoles 3 -k 50 --use_dc_grammar)
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --seed 42 --use_dataset_len 4000 --max_epochs 25 --inv_temp 0.05 --nHoles 3 -k 50)
  	echo "dc model training job: $RES_DC"
 
 	# train model:
@@ -42,5 +42,5 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=algolisp_dataset4000v2 g-run bash train_and_test.sh --inner > run.txt & #can i do this??
+	name=algolisp_f4000v1 g-run bash train_and_test.sh --inner > run.txt & #can i do this??
 fi
