@@ -109,7 +109,7 @@ if __name__ == "__main__":
                         batchloader(max_iteration - dcModel.iteration,
                                                 basegrammar,
                                                 batchsize=1,
-                                                N=args.n_example,
+                                                N=args.n_examples,
                                                 V=args.max_length,
                                                 L=args.max_list_length, 
                                                 compute_sketches=args.improved_dc_model,

@@ -172,7 +172,9 @@ def batchloader(data_file,
 				filter_depth=None,
 				nHoles=1,
 				limit_data=False,
-				use_fixed_seed=False):
+				use_fixed_seed=False,
+				use_dataset_len=False,
+				seed=42):
 
 	mode = 'train' if data_file=='train' else 'eval'
 	parser = arguments.get_arg_parser('Training AlgoLisp', mode)
@@ -183,21 +185,34 @@ def batchloader(data_file,
 
 	if data_file == 'train':
 		NearDataset, _ = dataset.get_dataset(args)
+		dataset_len = 79214
 	elif data_file == 'dev':
 		_, NearDataset = dataset.get_dataset(args)
+		assert not use_dataset_len
 	elif data_file == 'eval':
 		print("WARNING: right now 'eval' gives correct 'eval' test set")
 		NearDataset = dataset.get_eval_dataset(args) # TODO:
+		assert not use_dataset_len
 	else:
 		assert False
 
-	seeded_random = random.Random(42) #so that state is shared
+	seeded_random = random.Random(seed) #so that state is shared
 
+	if use_dataset_len:
+		inc_list = seeded_random.sample(range(dataset_len), use_dataset_len)
+		counter = 0
 	def remove_datum():
-		if limit_data:
-			return not seeded_random.random() < limit_data
-		else: 
-			return False
+		if use_dataset_len:
+			rval = counter not in inc_list
+			counter += 1
+			return rval
+		else:
+			if limit_data:
+				return not seeded_random.random() < limit_data
+			else: 
+				yield False
+
+
 
 	data = (convert_datum(ex,
 			compute_sketches=compute_sketches,

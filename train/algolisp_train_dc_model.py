@@ -72,6 +72,8 @@ if __name__ == "__main__":
     parser.add_argument('--nHoles', type=int, default=1)
     parser.add_argument('--limit_data', type=float, default=False)
     parser.add_argument('--IO2seq', action='store_true')
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--use_dataset_len', type=int, default=False)
     args = parser.parse_args()
 
     batchsize = 1
@@ -130,7 +132,9 @@ if __name__ == "__main__":
                                                 nHoles=args.nHoles,
                                                 use_timeout=args.use_timeout,
                                                 filter_depth=args.filter_depth,
-                                                limit_data=args.limit_data)): #TODO
+                                                limit_data=args.limit_data,
+                                                seed=args.seed,
+                                                use_dataset_len=args.use_dataset_len)): #TODO
 
             spec = datum.spec if not args.IO2seq else datum.IO
             t = time.time()

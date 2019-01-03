@@ -92,14 +92,18 @@ parser.add_argument('--nHoles', type=int, default=1)
 parser.add_argument('--limit_data', type=float, default=False)
 parser.add_argument('--train_to_convergence', action='store_true')
 
-parser.add_argument('--convergence_mode', type=str, default='eval')
+parser.add_argument('--convergence_mode', type=str, default='dev')
 parser.add_argument('--limit_val_data', type=float, default=0.02)
 parser.add_argument('--converge_after', type=int, default=5)
+parser.add_argument('--converge_after_iter', type=int, default=1250)
 
 parser.add_argument('--load_trained_model', action='store_true')
 parser.add_argument('--load_trained_model_path', type=str, default="./saved_models/algolisp_holes.p")
 
 parser.add_argument('--IO2seq', action='store_true')
+
+parser.add_argument('--seed', type=int, default=42)
+parser.add_argument('--use_dataset_len', type=int, default=False)
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
@@ -207,7 +211,9 @@ if __name__ == "__main__":
                                                 use_timeout=args.use_timeout,
                                                 filter_depth=args.filter_depth,
                                                 nHoles=args.nHoles,
-                                                limit_data=args.limit_data)):
+                                                limit_data=args.limit_data,
+                                                seed=args.seed,
+                                                use_dataset_len=args.use_dataset_len)):
             specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs)
             if i==0: print("batchsize:", len(specs))
             if args.timing: t = time.time()
@@ -237,7 +243,7 @@ if __name__ == "__main__":
         else: model.epochs += 1
 
         #code for determining if training to convergence
-        if args.train_to_convergence and j >= args.converge_after: #completed at least 3 epochs ... 
+        if args.train_to_convergence and j >= args.converge_after and ((model.pretrain_iteration if pretraining else model.iteration) >= args.converge_after_iter): #completed at least 3 epochs ... 
             val_objective = 0
             for batch in batchloader(args.convergence_mode,
                         batchsize=batchsize,
@@ -252,7 +258,8 @@ if __name__ == "__main__":
                         filter_depth=args.filter_depth,
                         nHoles=args.nHoles,
                         limit_data=args.limit_val_data,
-                        use_fixed_seed=True): #TODO
+                        use_fixed_seed=True,
+                        seed=args.seed): #TODO
                 specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs)
                 val_objective_iter, _ = model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
                 val_objective += val_objective_iter.mean()
