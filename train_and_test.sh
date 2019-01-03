@@ -42,5 +42,5 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=algolisp_dataset4000v1 g-run bash train_and_test.sh --inner > run.txt & #can i do this??
+	name=algolisp_dataset4000v2 g-run bash train_and_test.sh --inner > run.txt & #can i do this??
 fi
