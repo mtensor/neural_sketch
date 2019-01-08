@@ -240,7 +240,7 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 			    w.start()
 			# gather some data
 			data_list = enumerate(dataset)
-			results_list = process_data(data_list, inQ, outQ) #can just also have lenght of list
+			results_list = process_data(data_list, inQ, outQ) #can just also have length of list
 			# tell all workers, no more data (one msg for each)
 			for i in range(args.n_processes):
 			    inQ.put(None)

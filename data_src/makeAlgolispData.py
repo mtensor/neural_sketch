@@ -289,14 +289,14 @@ if __name__=='__main__':
 	# 	print(len(datum.pseq))
 	# 	print()
 
-
+	j = 0
 	for i, d in enumerate(batchloader('eval',
 				batchsize=1,
 				compute_sketches=False,
 				only_passable=True)):
-		continue
+		j +=1
 
-	print(i+1, "programs")
+	print(j, "programs")
 
 	assert False
 	print(basegrammar)
