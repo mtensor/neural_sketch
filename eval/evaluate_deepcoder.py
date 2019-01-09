@@ -30,6 +30,8 @@ from utilities import timing, callCompiled
 
 from itertools import islice, zip_longest
 
+from models import deepcoderModel
+sys.modules['deepcoderModel'] = deepcoderModel
 
 """ rough schematic of what needs to be done:
 1) Evaluate NN on test inputs

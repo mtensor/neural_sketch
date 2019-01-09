@@ -36,7 +36,7 @@ from models.deepcoderModel import SketchFeatureExtractor, HoleSpecificFeatureExt
 
 def newDcModel(cuda=True, IO2seq=False):
     if IO2seq:
-        input_vocab =  algolisp_IO_vocab# TODO
+        input_vocab =  algolisp_IO_vocab()# TODO
         algolisp_vocab =  list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
         specExtractor = AlgolispIOFeatureExtractor(input_vocab, hidden=128, use_cuda=cuda) # Is this okay? max length
         sketchExtractor = SketchFeatureExtractor(algolisp_vocab, hidden=128, use_cuda=cuda)

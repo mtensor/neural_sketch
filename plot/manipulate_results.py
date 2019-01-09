@@ -1,4 +1,8 @@
 #play with results
+import sys
+import os
+sys.path.append(os.path.abspath('./'))
+sys.path.append(os.path.abspath('./ec'))
 
 import matplotlib
 matplotlib.use('Agg')
@@ -7,6 +11,9 @@ import dill
 import time
 import argparse
 from plot.p_solved_hack import hack_percent_solved_n_checked
+
+from data_src import makeRobustFillData
+sys.modules['makeRobustFillData'] = makeRobustFillData
 
 SMALL_SIZE = 14
 MEDIUM_SIZE = 16
