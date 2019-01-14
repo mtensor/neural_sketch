@@ -17,26 +17,20 @@ if [[ "$@" == "--inner" ]]; then
 	# train model:
 	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --seed 43 --use_dataset_len 6000 --train_to_convergence --max_epochs 45 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout)
 
+	echo "eval jobs"
+	sbatch --dependency=afterok:$RES_TRAIN -e 'finaleval.out' -o 'finaleval.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9967 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model"
 
-	# # test model
-	# echo "Eval job:"
-	# sbatch --dependency=afterok:$RES_TRAIN -e 'eval.out' -o 'eval.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 8995 --only_passable --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model"
-
-	# echo "Eval rnn job:"
-	# sbatch --dependency=afterok:$RES_PRE -e 'evalrnn.out' -o 'evalrnn.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 8995 --only_passable --model_path "./saved_models/algolisp_pretrained.p" --resultsfile "results_rnn_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
+	sbatch --dependency=afterok:$RES_PRE -e 'finalevalrnn.out' -o 'finalevalrnn.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9967 --mdl 100 --model_path "./saved_models/algolisp_pretrained.p" --resultsfile "results_rnn_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
 	
-	# echo "Eval dc baseline job:"
-	# sbatch --dependency=afterok:$RES_DC -e 'evaldc.out' -o 'evaldc.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 8995 --only_passable --dc_baseline --resultsfile "results_dc_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
+	sbatch --dependency=afterok:$RES_DC -e 'finalevaldc.out' -o 'finalevaldc.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9967 --mdl 100 --dc_baseline --resultsfile "results_dc_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
 
+	echo "dev jobs:"
 	# test model
-	echo "Eval job:"
-	sbatch --dependency=afterok:$RES_TRAIN -e 'evaldev.out' -o 'evaldev.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 9807 --only_passable --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_dev_model"
+	sbatch --dependency=afterok:$RES_TRAIN -e 'finaldev.out' -o 'finaldev.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 10819 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_dev_model"
 
-	echo "Eval rnn job:"
-	sbatch --dependency=afterok:$RES_PRE -e 'evaldevrnn.out' -o 'evaldevrnn.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 9807 --only_passable --model_path "./saved_models/algolisp_pretrained.p" --resultsfile "results_dev_rnn_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
+	sbatch --dependency=afterok:$RES_PRE -e 'finaldevrnn.out' -o 'finaldevrnn.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 10819 --mdl 100 --model_path "./saved_models/algolisp_pretrained.p" --resultsfile "results_dev_rnn_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
 	
-	echo "Eval dc baseline job:"
-	sbatch --dependency=afterok:$RES_DC -e 'evaldevdc.out' -o 'evaldevdc.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 9807 --only_passable --dc_baseline --resultsfile "results_dev_dc_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
+	sbatch --dependency=afterok:$RES_DC -e 'finaldevdc.out' -o 'finaldevdc.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 10819 --mdl 100 --dc_baseline --resultsfile "results_dev_dc_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
 
 
 else

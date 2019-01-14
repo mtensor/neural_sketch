@@ -103,11 +103,25 @@ def convert_datum(ex,
 				only_passable=False,
 				filter_depth=None,
 				nHoles=4,
+				exclude=None,
+				include_only=None,
+				#include_all=None,
 				use_fixed_seed=False,
 				rng=None):
 	if filter_depth:
 		#filter_depth should be an iterable of depths that are allowed
 		if not tree_depth(ex.code_tree) in filter_depth: return None
+
+	if exclude:
+		for subex in exclude:
+			if any( check_subtree(ex.code_tree, subex) for subex in exclude): return None
+
+	if include_only: 
+		for subex in include_only:
+			if not any( check_subtree(ex.code_tree, subex) for subex in include_only): return None
+
+	#if include_all: assert False, "unimplemnted"
+
 
 	#find IO
 	IO = convert_IO(ex.tests) #TODO
@@ -115,8 +129,8 @@ def convert_datum(ex,
 	if only_passable:
 		executor_ = executor.LispExecutor()
 		hit_tree = test_program_on_IO(ex.code_tree, IO, schema_args, executor_)
-		hit_seq = test_program_on_IO(seq_to_tree(ex.code_sequence), IO, schema_args, executor_)
-		if not hit_tree==hit_seq: print("DATASET WARNING: tree and seq don't match, one fails tests and the other passes")
+		#hit_seq = test_program_on_IO(seq_to_tree(ex.code_sequence), IO, schema_args, executor_)
+		#if not hit_tree==hit_seq: print("DATASET WARNING: tree and seq don't match, one fails tests and the other passes")
 		if not hit_tree: return None
 	# find tp
 	if proper_type:
@@ -174,7 +188,13 @@ def batchloader(data_file,
 				limit_data=False,
 				use_fixed_seed=False,
 				use_dataset_len=False,
+				exclude=None,
+				include_only=None,
+				include_all=None,
 				seed=42):
+	"""
+	Note: exclude and include_only take lists of expressions!!! don't get confused
+	"""
 
 	mode = 'train' if data_file=='train' else 'eval'
 	parser = arguments.get_arg_parser('Training AlgoLisp', mode)
@@ -227,6 +247,8 @@ def batchloader(data_file,
 			only_passable=only_passable,
 			filter_depth=filter_depth,
 			nHoles=nHoles,
+			exclude=exclude,
+			include_only=include_only,
 			use_fixed_seed=use_fixed_seed,
 			rng=seeded_random if use_fixed_seed else None) for batch in NearDataset for ex in batch if not remove_datum() ) #I assume batch has one ex
 	data = (x for x in data if x is not None)

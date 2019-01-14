@@ -136,7 +136,22 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check)) for i, datum in enumerate(dataset)}
 
 #TODO: refactor for strings
-
+def save_results(results, args):
+	timestr = str(int(time.time()))
+	r = '_test' + str(args.n_test) + '_'
+	if args.resultsfile != 'NA':
+		filename = 'results/' + args.resultsfile + '.p'
+	elif args.dc_baseline:
+		filename = "results/prelim_results_dc_baseline_" + r + timestr + '.p'
+	elif args.pretrained:
+		filename = "results/prelim_results_rnn_baseline_" + r + timestr + '.p'
+	else:
+		dc = 'wdcModel_' if args.dcModel else ''
+		filename = "results/prelim_results_" + dc + r + timestr + '.p'
+	with open(filename, 'wb') as savefile:
+		dill.dump(results, savefile)
+		print("results file saved at", filename)
+	return savefile
 
 
 if __name__=='__main__':

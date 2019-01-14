@@ -61,8 +61,11 @@ parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
 parser.add_argument('--timeout', type=int, default=None)
 parser.add_argument('--debug', action='store_true')
 parser.add_argument('--IO2seq', action='store_true')
+parser.add_argument('--odd', action='store_true')
+parser.add_argument('--even', action='store_true')
 args = parser.parse_args()
 
+assert not (args.even and args.odd)
 args.cpu = args.cpu or args.parallel #if parallel, then it must be cpu only
 nSamples = args.n_samples
 mdl = args.mdl
@@ -107,6 +110,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 				samples, _scores = model.beam_decode(spec, beam_size=nRepeats)
 			else:
 				samples, _scores, _ = model.sampleAndScore(spec, nRepeats=nRepeats)
+
 			#print("task", i, "done with rnn, took", time.time()-tnet, "seconds")
 			# only loop over unique samples:
 			samples = {tuple(sample) for sample in samples}  # only 
@@ -150,6 +154,10 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 			del dcModel
 		return results + enum_results
 
+	except KeyError as e:
+		print("on task", i, "KeyError:", e)
+		return [AlgolispResult(None, None, False, n_checked, time.time()-t)]
+
 	except EvaluationTimeout:
 		print("Timed out while evaluating task", i)
 		return [AlgolispResult(None, None, False, n_checked, time.time()-t)]
@@ -185,29 +193,17 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 						ret = f(val)
 
 						if args.debug:
-
 							from pympler import summary
 							from pympler import muppy
 							all_objects = muppy.get_objects()
 							sum1 = summary.summarize(all_objects)
 							print("summary:")
 							summary.print_(sum1)
-
 							from pympler import tracker
 							tr = tracker.SummaryTracker()
 							print("diff:")
 							tr.print_diff()
 
-							# import objgraph
-							# print("growth:")
-							# objgraph.show_growth()
-							# print("most common types:")
-							# objgraph.show_most_common_types()
-
-							# print("leaky objects:")
-							# roots = objgraph.get_leaking_objects()
-							# objgraph.show_most_common_types(objects=roots)
-						# send the response / results
 						outQ.put( ret )
 					except Exception as e:
 						print("error!", e)
@@ -302,13 +298,21 @@ if __name__=='__main__':
 	else: dcModel = None
 
 	###load the test dataset###
+	if args.odd:
+		include_only = [ ["lambda1", ["==", ["%", "arg1", "2"], "1"]] ]
+	elif args.even: 
+		include_only = [ ["lambda1", ["==", ["%", "arg1", "2"], "0"]] ] 
+	else: 
+		include_only = None
+
 	dataset = batchloader(args.dataset,
 							batchsize=1,
                             compute_sketches=False,
                             dc_model=None,
                             improved_dc_model=False,
                             only_passable=args.only_passable,
-                            filter_depth=args.filter_depth) #TODO
+                            filter_depth=args.filter_depth,
+                            include_only=include_only) #TODO
 	dataset = islice(dataset, args.n_test)
 
 	# from collections import Counter
@@ -355,8 +359,9 @@ if __name__=='__main__':
 	filt_list = list(islice(batchloader(args.dataset,
 											batchsize=1,
 											compute_sketches=False,
-											only_passable=True), args.n_test))
-	filtered_results = {key: val for key, val in results.items() if any(key == filt for filt in filt_list)}
+											only_passable=True,
+											include_only=include_only), args.n_test))
+	filtered_results = {key: val for key, val in results.items() if any(hash(key) == hash(filt) for filt in filt_list)}
 
 	filtered_hits = sum(any(result.hit for result in result_list) for result_list in filtered_results.values())
 

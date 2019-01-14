@@ -74,7 +74,19 @@ if __name__ == "__main__":
     parser.add_argument('--IO2seq', action='store_true')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--use_dataset_len', type=int, default=False)
+
+    parser.add_argument('--exclude_odd', action='store_true')
+    parser.add_argument('--exclude_even', action='store_true')
     args = parser.parse_args()
+
+    assert not (args.exclude_even and args.exclude_odd)
+
+    if args.exclude_odd:
+        exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "1"]] ]
+    elif args.exclude_even: 
+        exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "0"]] ] 
+    else: 
+        exclude = None
 
     batchsize = 1
     max_epochs = args.max_epochs
@@ -134,7 +146,8 @@ if __name__ == "__main__":
                                                 filter_depth=args.filter_depth,
                                                 limit_data=args.limit_data,
                                                 seed=args.seed,
-                                                use_dataset_len=args.use_dataset_len)): #TODO
+                                                use_dataset_len=args.use_dataset_len,
+                                                exclude=exclude)): #TODO
 
             spec = datum.spec if not args.IO2seq else datum.IO
             t = time.time()

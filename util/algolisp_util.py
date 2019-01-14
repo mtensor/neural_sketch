@@ -198,6 +198,14 @@ def tree_depth(tree):
             depth = max(tree_depth(x), depth)
     return depth + 1
 
+def check_subtree(tree, subtree):
+    #returns true if subtree is within tree, false otherwise
+    if tree==subtree: return True
+    if type(tree)==list:
+        for x in tree:
+            if check_subtree(x, subtree): return True
+    return False
+
 def make_holey_algolisp(prog,
                         k,
                         request,
@@ -389,24 +397,33 @@ def tree_to_prog(tree):
 
 
 if __name__=='__main__':
-    from grammar import Grammar
-    from program import Program
-    from algolispPrimitives import algolispProductions
+    # from grammar import Grammar
+    # from program import Program
+    # from algolispPrimitives import algolispProductions
 
-    g = Grammar.fromProductions(algolispProductions(), logVariable=.9)
+    # g = Grammar.fromProductions(algolispProductions(), logVariable=.9)
 
-    #p=Program.parse("(lambda (fn_call filter (list_add_symbol (lambda1_call == (list_add_symbol 1 (list_init_symbol (fn_call mod ( list_add_symbol 2 (list_init_symbol arg1)) ))) ) (list_init_symbol $0)) )")
-    p=Program.parse("(fn_call filter (list_add_symbol (lambda1_call eq (list_add_symbol (symbol_constant 1) (list_init_symbol (fn_call mod ( list_add_symbol (symbol_constant 2) (list_init_symbol (symbol_constant arg1))) ))) ) (list_init_symbol (symbol_constant a))))")
+    # #p=Program.parse("(lambda (fn_call filter (list_add_symbol (lambda1_call == (list_add_symbol 1 (list_init_symbol (fn_call mod ( list_add_symbol 2 (list_init_symbol arg1)) ))) ) (list_init_symbol $0)) )")
+    # p=Program.parse("(fn_call filter (list_add_symbol (lambda1_call eq (list_add_symbol (symbol_constant 1) (list_init_symbol (fn_call mod ( list_add_symbol (symbol_constant 2) (list_init_symbol (symbol_constant arg1))) ))) ) (list_init_symbol (symbol_constant a))))")
 
-    print(p)
+    # print(p)
 
-    #tree = p.evaluate(["a"])
-    tree = p.evaluate([])
-    print(tree)
+    # #tree = p.evaluate(["a"])
+    # tree = p.evaluate([])
+    # print(tree)
 
-    prog = tree_to_prog(tree)
-    print(prog)
-
-
+    # prog = tree_to_prog(tree)
+    # print(prog)
 
 
+    p1 = ["deref", ["sort", ["map", ["filter", ["range", "0", ["len", "a"]], ["lambda1", ["==", ["%", "arg1", "2"], "0"]]], ["partial0", "a", "int-deref"]]], ["/", ["len", ["map", ["filter", ["range", "0", ["len", "a"]], ["lambda1", ["==", ["%", "arg1", "2"], "0"]]], ["partial0", "a", "int-deref"]]], "2"]]
+    p2 = ["deref", ["sort", ["filter", "a", ["lambda1", ["==", ["%", "arg1", "2"], "0"]]]], ["/", ["len", ["filter", "a", ["lambda1", ["==", ["%", "arg1", "2"], "0"]]]], "2"]]
+    p3 = ["reduce", ["reverse", ["digits", ["head", "a"]]], "0", ["lambda2", ["+", ["*", "arg1", "10"], "arg2"]]]
+
+    subtree = ["lambda1", ["==", ["%", "arg1", "2"], "0"]]
+
+    assert check_subtree(p1, subtree) 
+    assert check_subtree(p2, subtree) 
+    assert not check_subtree(p3, subtree)
+
+    print('tests cleared') 

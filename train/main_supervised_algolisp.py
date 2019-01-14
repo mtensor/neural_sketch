@@ -104,7 +104,19 @@ parser.add_argument('--IO2seq', action='store_true')
 
 parser.add_argument('--seed', type=int, default=42)
 parser.add_argument('--use_dataset_len', type=int, default=False)
+
+parser.add_argument('--exclude_odd', action='store_true')
+parser.add_argument('--exclude_even', action='store_true')
 args = parser.parse_args()
+
+assert not (args.exclude_even and args.exclude_odd)
+
+if args.exclude_odd:
+    exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "1"]] ]
+elif args.exclude_even: 
+    exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "0"]] ] 
+else: 
+    exclude = None
 
 #assume we want num_half_life half lives to occur by the r_max value ...
 #alpha = math.log(2)*args.num_half_lifes/math.exp(args.r_max)
@@ -213,7 +225,8 @@ if __name__ == "__main__":
                                                 nHoles=args.nHoles,
                                                 limit_data=args.limit_data,
                                                 seed=args.seed,
-                                                use_dataset_len=args.use_dataset_len)):
+                                                use_dataset_len=args.use_dataset_len,
+                                                exclude=exclude)):
             specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs)
             if i==0: print("batchsize:", len(specs))
             if args.timing: t = time.time()
@@ -259,7 +272,8 @@ if __name__ == "__main__":
                         nHoles=args.nHoles,
                         limit_data=args.limit_val_data,
                         use_fixed_seed=True,
-                        seed=args.seed): #TODO
+                        seed=args.seed,
+                        include_only=exclude): #TODO might not be correct to do this
                 specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs)
                 val_objective_iter, _ = model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
                 val_objective += val_objective_iter.mean()
