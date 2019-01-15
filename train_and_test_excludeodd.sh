@@ -11,7 +11,7 @@ if [[ "$@" == "--inner" ]]; then
 	echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.p --exclude_odd --seed 42 --use_dataset_len 8000 --max_epochs 25 --inv_temp 0.05 --nHoles 3 -k 50)
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --exclude_odd --seed 42 --use_dataset_len 8000 --max_epochs 25 --inv_temp 0.05 --nHoles 3 -k 50)
  	echo "dc model training job: $RES_DC"
 
 	# train model:
