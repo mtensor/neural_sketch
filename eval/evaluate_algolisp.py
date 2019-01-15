@@ -63,6 +63,7 @@ parser.add_argument('--debug', action='store_true')
 parser.add_argument('--IO2seq', action='store_true')
 parser.add_argument('--odd', action='store_true')
 parser.add_argument('--even', action='store_true')
+parser.add_argument('--n_split', default=None, type=int)
 args = parser.parse_args()
 
 assert not (args.even and args.odd)
@@ -305,7 +306,7 @@ if __name__=='__main__':
 	else: 
 		include_only = None
 
-	dataset = batchloader(args.dataset,
+	full_dataset = batchloader(args.dataset,
 							batchsize=1,
                             compute_sketches=False,
                             dc_model=None,
@@ -313,7 +314,7 @@ if __name__=='__main__':
                             only_passable=args.only_passable,
                             filter_depth=args.filter_depth,
                             include_only=include_only) #TODO
-	dataset = islice(dataset, args.n_test)
+	
 
 	# from collections import Counter
 
@@ -330,7 +331,16 @@ if __name__=='__main__':
 		i, datum = i_datum
 		return (datum, list(f_partial(i,datum)))
 
-	results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel)
+	if args.n_split:
+		cutsize = int(args.n_test/args.n_split)
+		results = {}
+		for i in range(0,  args.n_test, cutsize):
+			dataset = islice(full_dataset, i, i+cutsize)
+			results.update(evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel) )
+
+	else:
+		dataset = islice(full_dataset, args.n_test)
+		results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel)
 
 	# count hits
 	hits = sum(any(result.hit for result in result_list) for result_list in results.values())
