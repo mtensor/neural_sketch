@@ -18,7 +18,7 @@ import math
 import random
 from type import Context, arrow, tint, tlist, UnificationFailure
 
-from util.algolisp_util import convert_IO, tree_to_prog, make_holey_algolisp, AlgolispHole, tree_to_seq, seq_to_tree, tree_depth
+from util.algolisp_util import convert_IO, tree_to_prog, make_holey_algolisp, AlgolispHole, tree_to_seq, seq_to_tree, tree_depth, check_subtree
 
 from itertools import zip_longest, chain
 from functools import reduce
