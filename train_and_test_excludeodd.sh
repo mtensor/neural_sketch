@@ -43,3 +43,8 @@ fi
 #sbatch -e 'evaldevprelim.out' -o 'evaldevprelim.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 9807 --only_passable --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_dev_model_prelim"
 
 
+#sbatch -e 'finalevaleven.out' -o 'finalevaleven.out' execute_cpu.sh python eval/evaluate_algolisp.py --even --n_test 638 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model"
+
+#sbatch -e 'finalevalrnneven.out' -o 'finalevalrnneven.out' execute_cpu.sh python eval/evaluate_algolisp.py --even --n_test 638 --mdl 100 --model_path "./saved_models/algolisp_pretrained.p" --resultsfile "results_rnn_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000
+	
+#sbatch -e 'finalevaldceven.out' -o 'finalevaldceven.out' execute_cpu.sh python eval/evaluate_algolisp.py --even --n_test 638 --mdl 100 --dc_baseline --resultsfile "results_dc_base" --queue --n_processes 44 --timeout 600 --max_to_check 20000

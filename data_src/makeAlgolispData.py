@@ -310,15 +310,19 @@ if __name__=='__main__':
 	# 	print("sketch: ", datum.sketch)
 	# 	print(len(datum.pseq))
 	# 	print()
-
-	j = 0
+	from collections import Counter
+	c = Counter()
+	max_len = 0
 	for i, d in enumerate(batchloader('eval',
 				batchsize=1,
 				compute_sketches=False,
-				only_passable=True)):
-		j +=1
+				only_passable=False)):
+		c.update([len(d.pseq)])
+		max_len = max(len(d.pseq) , max_len )
 
-	print(j, "programs")
+
+	print("max_len:", max_len)
+	print(c)
 
 	assert False
 	print(basegrammar)
@@ -329,3 +333,6 @@ if __name__=='__main__':
 
 	with open('basegrammar.p','wb') as savefile:
 		pickle.dump(g, savefile)
+
+	for i in c:
+		print(i, c[i])

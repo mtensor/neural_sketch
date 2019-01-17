@@ -64,6 +64,7 @@ parser.add_argument('--IO2seq', action='store_true')
 parser.add_argument('--odd', action='store_true')
 parser.add_argument('--even', action='store_true')
 parser.add_argument('--n_split', default=None, type=int)
+parser.add_argument('--start_at_debug', default=None, type=int)
 args = parser.parse_args()
 
 assert not (args.even and args.odd)
@@ -91,10 +92,12 @@ def untorch(g):
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeout=None):
 	try:
 		if timeout is not None:
-			print("hit set timeout")
+			#print("hit set timeout")
 			def timeoutCallBack(_1, _2): raise EvaluationTimeout()
-			signal.signal(signal.SIGVTALRM, timeoutCallBack)
-			signal.setitimer(signal.ITIMER_VIRTUAL, timeout)
+			#signal.signal(signal.SIGVTALRM, timeoutCallBack)
+			#signal.setitimer(signal.ITIMER_REAL, timeout)
+			signal.signal(signal.SIGALRM, timeoutCallBack)
+			signal.alarm(timeout)
 
 		t = time.time()
 		results = []
@@ -112,7 +115,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 			else:
 				samples, _scores, _ = model.sampleAndScore(spec, nRepeats=nRepeats)
 
-			#print("task", i, "done with rnn, took", time.time()-tnet, "seconds")
+			#print("task", i, "done with rnn, took", time.time()-t, "seconds", flush=True)
 			# only loop over unique samples:
 			samples = {tuple(sample) for sample in samples}  # only 
 		if (not improved_dc_grammar) or (not dcModel):
@@ -124,6 +127,10 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 				tr = seq_to_tree(sample)
 				#print(tr)
 				sk = tree_to_prog(tr)
+
+			except EvaluationTimeout:
+				raise EvaluationTimeout()
+
 			except Exception as e: # TODO: needs to be fixed
 				traceback.clear_frames(e.__traceback__)
 				print("EXCEPTION IN PARSE:,", e)
@@ -143,10 +150,11 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 		#print("sketchtups:", sketchtups)
 
 		#alternate which sketch to enumerate from each time
+		#print("task", i, "starting enum outer, took", time.time()-t, "seconds", flush=True)
 		if args.pypy:
-			enum_results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
+			enum_results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check, i)
 		else:
-			enum_results, n_checked, n_hit = algolisp_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check) #might need more than IO
+			enum_results, n_checked, n_hit = algolisp_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check, i) #might need more than IO
 		del sketchtups
 		#del g
 		if model:
@@ -165,12 +173,14 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 
 	finally:
 		######TODO: want search time and total time to hit task ######
+		if timeout is not None:
+			#signal.signal(signal.SIGVTALRM, lambda *_: None)
+			#signal.setitimer(signal.ITIMER_REAL, 0)
+			signal.alarm(0)
 		print(f"task {i}:")
 		print(f"evaluation for task {i} took {time.time()-t} seconds")
 		print(f"For task {i}, tried {n_checked} candidates, found {n_hit} hits", flush=True)
-		if timeout is not None:
-			signal.signal(signal.SIGVTALRM, lambda *_: None)
-			signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+
 
 
 def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
@@ -318,7 +328,8 @@ if __name__=='__main__':
 
 	# from collections import Counter
 
-
+	if args.start_at_debug:
+		full_dataset = islice(full_dataset, args.start_at_debug, args.n_test)
 	# c = Counter()
 	# c.update(tree_depth(seq_to_tree(d.pseq)) for d in dataset)
 	# print(c)
