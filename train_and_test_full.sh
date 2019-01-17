@@ -44,3 +44,7 @@ fi
 #sbatch -e 'evaldevprelim.out' -o 'evaldevprelim.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dataset 'dev' --n_test 9807 --only_passable --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_dev_model_prelim"
 
 
+ #sbatch -e 'finaleval16kdc.out' -o 'finaleval16kdc.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dcModel_path ../algolisp_16000v2_1547091411445/saved_models/algolisp_dc_model.p --n_test 9967 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model16kdc"
+
+
+
