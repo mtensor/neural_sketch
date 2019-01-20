@@ -82,7 +82,7 @@ if __name__ == "__main__":
     assert not (args.exclude_even and args.exclude_odd)
 
     #xor all the options classes:
-    if any( args.exclude_even, args.exclude_odd, exclude_geq):
+    if any([args.exclude_even, args.exclude_odd, args.exclude_geq]):
         assert (args.exclude_even or args.exclude_odd) != args.exclude_geq
 
     if args.exclude_odd:
