@@ -65,6 +65,8 @@ parser.add_argument('--odd', action='store_true')
 parser.add_argument('--even', action='store_true')
 parser.add_argument('--geq', action='store_true')
 parser.add_argument('--leq', action='store_true')
+parser.add_argument('--lt', action='store_true')
+parser.add_argument('--gt', action='store_true')
 parser.add_argument('--n_split', default=None, type=int)
 parser.add_argument('--start_at_debug', default=None, type=int)
 args = parser.parse_args()
@@ -319,6 +321,10 @@ if __name__=='__main__':
 		include_only = ["<="]
 	elif args.geq:
 		include_only = [">="]
+	elif args.gt:
+		include_only = [">"]
+	elif args.lt:
+		include_only = ["<"]
 	else: 
 		include_only = None
 
