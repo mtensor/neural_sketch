@@ -120,14 +120,19 @@ def plot_result(results=None, baseresults=None, resultsfile=None, basefile='resu
 def plot_result_list(file_list, legend_list, filename, robustfill=False, plot_time=True, generalization=False, double=False, title='NA', max_budget=500000):
 	result_list = []
 	if double:
-		l = len(file_list)
-		fl = zip(file_list[:l],file_list[l:])
-		for f1, f2 in file_list:
+		print("WARNING: this is a major hack, don't try at home")
+		l = int(len(file_list)/2)
+		print("num:", l)
+		fl = zip(file_list[:l], file_list[l:])
+		for f1, f2 in fl:
 			with open(f1, 'rb') as savefile:
 				r1 = dill.load(savefile)
+				print("type:")
+				print(type(r1))
 			with open(f2, 'rb') as savefile:
 				r2 = dill.load(savefile)
-			result_list.append(r1+r2)
+			print("combining", f1, "and", f2, "...")
+			result_list.append({**r1, **r2})
 	else:
 		for file in file_list:
 			if file in mem_problem_list:

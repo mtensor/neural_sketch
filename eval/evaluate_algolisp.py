@@ -63,6 +63,8 @@ parser.add_argument('--debug', action='store_true')
 parser.add_argument('--IO2seq', action='store_true')
 parser.add_argument('--odd', action='store_true')
 parser.add_argument('--even', action='store_true')
+parser.add_argument('--geq', action='store_true')
+parser.add_argument('--leq', action='store_true')
 parser.add_argument('--n_split', default=None, type=int)
 parser.add_argument('--start_at_debug', default=None, type=int)
 args = parser.parse_args()
@@ -313,6 +315,10 @@ if __name__=='__main__':
 		include_only = [ ["lambda1", ["==", ["%", "arg1", "2"], "1"]] ]
 	elif args.even: 
 		include_only = [ ["lambda1", ["==", ["%", "arg1", "2"], "0"]] ] 
+	elif args.leq:
+		include_only = ["<="]
+	elif args.geq:
+		include_only = [">="]
 	else: 
 		include_only = None
 
