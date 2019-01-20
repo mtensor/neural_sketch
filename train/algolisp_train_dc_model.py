@@ -77,6 +77,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--exclude_odd', action='store_true')
     parser.add_argument('--exclude_even', action='store_true')
+    parser.add_argument('--exclude_geq', action='store_true')
     args = parser.parse_args()
 
     assert not (args.exclude_even and args.exclude_odd)
