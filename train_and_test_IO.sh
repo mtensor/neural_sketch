@@ -7,11 +7,11 @@ if [[ "$@" == "--inner" ]]; then
 	which python
 
 	#Only pretrain
-	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 3 --train_to_convergence --converge_after 5 --IO2seq --batchsize 16 --digit_enc)
+	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 3 --train_to_convergence --converge_after 5 --IO2seq --batchsize 16 --digit_enc --new)
 	echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --max_epochs 10 --inv_temp 0.05 --nHoles 3 -k 50 --IO2seq --digit_enc )
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --max_epochs 10 --inv_temp 0.05 --nHoles 3 -k 50 --IO2seq --digit_enc --new)
  	echo "dc model training job: $RES_DC"
 
 	# train model:
