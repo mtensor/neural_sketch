@@ -31,7 +31,7 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=algolisp_IO2seqready g-run bash train_and_test_IO.sh --inner > run.txt & #can i do this??
+	name=algolisp_IO2seqfixed g-run bash train_and_test_IO.sh --inner > run.txt & #can i do this??
 fi
 
 

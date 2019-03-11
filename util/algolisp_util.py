@@ -147,7 +147,7 @@ def deal_with_inputs(thing):
         #     assert False, thing
         return [thing]
     if type(thing) == chr:
-        return [chr]
+        return [thing]
     if type(thing) == str:
         return list(thing)
 
