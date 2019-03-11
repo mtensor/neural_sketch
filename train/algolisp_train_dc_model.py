@@ -23,7 +23,7 @@ from itertools import chain
 
 
 from grammar import Grammar, NoCandidates
-from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab, algolisp_IO_vocab
+from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab, algolisp_IO_vocab, digit_enc_vocab
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 #from util.deepcoder_util import parseprogram, grammar
@@ -34,11 +34,11 @@ from models.deepcoderModel import SketchFeatureExtractor, HoleSpecificFeatureExt
 #   from deepcoderModel import 
 
 
-def newDcModel(cuda=True, IO2seq=False):
+def newDcModel(cuda=True, IO2seq=False, digit_enc=False):
     if IO2seq:
-        input_vocab =  algolisp_IO_vocab()# TODO
+        input_vocab = algolisp_IO_vocab() if not digit_enc else digit_enc_vocab()# TODO
         algolisp_vocab =  list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
-        specExtractor = AlgolispIOFeatureExtractor(input_vocab, hidden=128, use_cuda=cuda) # Is this okay? max length
+        specExtractor = AlgolispIOFeatureExtractor(input_vocab, hidden=128, use_cuda=cuda, digit_enc=digit_enc) # Is this okay? max length
         sketchExtractor = SketchFeatureExtractor(algolisp_vocab, hidden=128, use_cuda=cuda)
         extractor = HoleSpecificFeatureExtractor(specExtractor, sketchExtractor, hidden=128, use_cuda=cuda)
         dcModel = ImprovedRecognitionModel(extractor, basegrammar, hidden=[128], cuda=cuda, contextual=False)
@@ -79,6 +79,8 @@ if __name__ == "__main__":
     parser.add_argument('--exclude_even', action='store_true')
     parser.add_argument('--exclude_geq', action='store_true')
     parser.add_argument('--exclude_gt', action='store_true')
+
+    parser.add_argument('--digit_enc', action='store_true')
     args = parser.parse_args()
 
     assert not (args.exclude_even and args.exclude_odd)
@@ -115,7 +117,7 @@ if __name__ == "__main__":
     try:
         if args.new:
             raise FileNotFoundError
-        dcModel=newDcModel(IO2seq=args.IO2seq)
+        dcModel=newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
         dcModel.load_state_dict(torch.load(args.load_model_path))
         print('found saved dcModel, loading ...')
     except FileNotFoundError:
@@ -125,7 +127,7 @@ if __name__ == "__main__":
         #extractor = LearnedFeatureExtractor(deepcoder_io_vocab, hidden=128)
         #dcModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
 
-        dcModel = newDcModel(IO2seq=args.IO2seq)
+        dcModel = newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
 
     print("number of parameters is", sum(p.numel() for p in dcModel.parameters() if p.requires_grad))
 

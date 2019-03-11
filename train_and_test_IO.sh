@@ -7,15 +7,15 @@ if [[ "$@" == "--inner" ]]; then
 	which python
 
 	#Only pretrain
-	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 10 --train_to_convergence --converge_after 5 --IO2seq --batchsize 4)
+	RES_PRE=$(sbatch --parsable -e 'pretrain.out' -o 'pretrain.out' execute_gpu.sh python train/main_supervised_algolisp.py --pretrain --max_epochs 0 --max_pretrain_epochs 3 --train_to_convergence --converge_after 5 --IO2seq --batchsize 16 --digit_enc)
 	echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --max_epochs 10 --inv_temp 0.05 --nHoles 3 -k 50 --IO2seq )
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/algolisp_train_dc_model.py --max_epochs 10 --inv_temp 0.05 --nHoles 3 -k 50 --IO2seq --digit_enc )
  	echo "dc model training job: $RES_DC"
 
 	# train model:
-	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --train_to_convergence --converge_after 5 --max_epochs 10 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --IO2seq --batchsize 4)
+	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_PRE -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --train_to_convergence --converge_after 5 --max_epochs 3 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --IO2seq --batchsize 16 --digit_enc)
 
 
 	# test model
@@ -31,7 +31,7 @@ if [[ "$@" == "--inner" ]]; then
 else
 	#to activate, should properly run:
 	echo "running main script at run.txt"
-	name=algolisp_IO2seqfixed g-run bash train_and_test_IO.sh --inner > run.txt & #can i do this??
+	name=algolisp_IO2seqdigit_enc g-run bash train_and_test_IO.sh --inner > run.txt & #can i do this??
 fi
 
 

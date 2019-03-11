@@ -306,12 +306,13 @@ class RegexFeatureExtractor(RecurrentFeatureExtractor):
 class AlgolispIOFeatureExtractor(RecurrentFeatureExtractor):
     def tokenize(self, IO):
         #for example in examples:
-        return [([], tokenize_for_dc(example)) for example in IO]
+        return [([], tokenize_for_dc(example, digit_enc=self.digit_enc)) for example in IO]
 
-    def __init__(self, lexicon, hidden=128, use_cuda=True): #was(self, tasks)
+    def __init__(self, lexicon, hidden=128, use_cuda=True, digit_enc=False): #was(self, tasks)
         self.lexicon = set(lexicon)
         self.USE_CUDA = use_cuda
         self.H = hidden
+        self.digit_enc = digit_enc
 
         super(AlgolispIOFeatureExtractor, self).__init__(lexicon=list(lexicon),
                                                         cuda=self.USE_CUDA,

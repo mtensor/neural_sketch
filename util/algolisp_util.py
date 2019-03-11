@@ -138,13 +138,15 @@ def top_k_sketches(g, k, nHoles, p, tp, return_obj=AlgolispHole):
 def tokenize_for_robustfill(specs):
     return [[spec] for spec in specs]
 
-def deal_with_inputs(thing):
+def deal_with_inputs(thing, digit_enc=False):
     #whatever this is, output a list
     if type(thing) == bool:
         return [thing]
     if type(thing) == int:
         # if thing > 100000000000:
         #     assert False, thing
+        if digit_enc:
+            return list(str(thing))
         return [thing]
     if type(thing) == chr:
         return [thing]
@@ -154,29 +156,30 @@ def deal_with_inputs(thing):
     if type(thing) == list:
         rval = ['LIST_START']
         for th in thing:
-            rval.extend(deal_with_inputs(th))
+            rval.extend(deal_with_inputs(th, digit_enc=digit_enc))
+            if digit_enc: rval.append(',')
         rval.append('LIST_END')
         return rval
 
-def tokenize_for_dc(io):
+def tokenize_for_dc(io, digit_enc=False): #TODO
     ex = []
     #ensure it's sorted
     xs = sorted( io['input'].items(), key=lambda x: x[0])
     for var, x in xs:
         ex.append("VAR"+var)
-        ex.extend(deal_with_inputs(x))
+        ex.extend(deal_with_inputs(x, digit_enc=digit_enc))
     #now do outputs
     ex.append('OUTPUT')
-    ex.extend( deal_with_inputs( io['output']))
+    ex.extend( deal_with_inputs( io['output'], digit_enc=digit_enc))
     return ex
 
-def tokenize_IO_for_robustfill(IOs):
+def tokenize_IO_for_robustfill(IOs, digit_enc=False):
     #need list of lists
     out = []
     for IO in IOs:
         tokenized = []
         for io in IO:
-            tokenized.append(tokenize_for_dc(io))
+            tokenized.append(tokenize_for_dc(io, digit_enc=digit_enc))
         out.append(tokenized)
     return out
 

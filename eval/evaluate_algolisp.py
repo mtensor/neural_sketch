@@ -69,6 +69,7 @@ parser.add_argument('--lt', action='store_true')
 parser.add_argument('--gt', action='store_true')
 parser.add_argument('--n_split', default=None, type=int)
 parser.add_argument('--start_at_debug', default=None, type=int)
+parser.add_argument('--digit_enc', action='store_true')
 args = parser.parse_args()
 
 assert not (args.even and args.odd)
@@ -113,7 +114,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 			torch.set_num_threads(1)
 			tnet = time.time()
 			#print("task", i, "started using rnn")
-			spec = tokenize_for_robustfill([datum.spec]) if not args.IO2seq else tokenize_IO_for_robustfill([datum.IO])
+			spec = tokenize_for_robustfill([datum.spec]) if not args.IO2seq else tokenize_IO_for_robustfill([datum.IO], digit_enc=args.digit_enc)
 			if args.beam:
 				samples, _scores = model.beam_decode(spec, beam_size=nRepeats)
 			else:
@@ -304,10 +305,10 @@ if __name__=='__main__':
 		print("loading dcModel")
 		
 		if args.cpu:
-			dcModel=newDcModel(cuda=False)
+			dcModel=newDcModel(cuda=False, digit_enc=args.digit_enc)
 			dcModel.load_state_dict(torch.load(args.dcModel_path, map_location=lambda storage, loc: storage))
 		else:
-			dcModel=newDcModel()
+			dcModel=newDcModel(digit_enc=args.digit_enc)
 			dcModel.load_state_dict(torch.load(args.dcModel_path))
 			dcModel.cuda()
 	else: dcModel = None

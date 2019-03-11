@@ -28,7 +28,7 @@ from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from deepcoderPrimitives import deepcoderProductions, flatten_program
 from utilities import timing
 
-from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab, algolisp_IO_vocab
+from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab, algolisp_IO_vocab, digit_enc_vocab
 from data_src.makeAlgolispData import batchloader
 from util.algolisp_util import tokenize_for_robustfill, tree_depth, seq_to_tree, tokenize_IO_for_robustfill
 
@@ -109,6 +109,8 @@ parser.add_argument('--exclude_odd', action='store_true')
 parser.add_argument('--exclude_even', action='store_true')
 parser.add_argument('--exclude_geq', action='store_true')
 parser.add_argument('--exclude_gt', action='store_true')
+
+parser.add_argument('--digit_enc', action='store_true')
 args = parser.parse_args()
 
 assert not (args.exclude_even and args.exclude_odd)
@@ -157,7 +159,14 @@ else:
 improved_dc_model = args.improved_dc_model
 
 vocab = list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
-inputvocab = algolisp_input_vocab if not args.IO2seq else list(algolisp_IO_vocab())#TODO
+
+if args.IO2seq and args.digit_enc:
+    import string
+    inputvocab = list(digit_enc_vocab()) 
+elif args.IO2seq:
+    inputvocab = list(algolisp_IO_vocab())
+else:
+    inputvocab = algolisp_input_vocab
 
 if __name__ == "__main__":
     print("Loading model", flush=True)
@@ -237,7 +246,7 @@ if __name__ == "__main__":
                                                 seed=args.seed,
                                                 use_dataset_len=args.use_dataset_len,
                                                 exclude=exclude)):
-            specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs)
+            specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
             if i==0: print("batchsize:", len(specs))
             if args.timing: t = time.time()
             objective, syntax_score = model.optimiser_step(specs, batch.pseqs if pretraining else batch.sketchseqs)
@@ -284,7 +293,7 @@ if __name__ == "__main__":
                         use_fixed_seed=True,
                         seed=args.seed,
                         include_only=exclude): #TODO might not be correct to do this
-                specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs)
+                specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
                 val_objective_iter, _ = model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
                 val_objective += val_objective_iter.mean()
             print("epoch", model.pretrain_epochs if pretraining else model.epochs, "score:", val_objective, flush=True)
