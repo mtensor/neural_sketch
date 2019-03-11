@@ -54,4 +54,15 @@ fi
  #sbatch -e 'finaleval16kdc.out' -o 'finaleval16kdc.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --dcModel_path ../algolisp_16000v2_1547091411445/saved_models/algolisp_dc_model.p --n_test 9967 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model16kdc"
 
 
+#RES_TRAIN=$(sbatch --parsable -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_algolisp.py --train_to_convergence --max_epochs 45 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --load_trained_model --load_trained_model_path './saved_models/algolisp_holes_prelim.p_1.p')
+#sbatch --dependency=afterok:$RES_TRAIN -e 'finalevalprelim.out' -o 'finalevalprelim.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9967 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model" 
+#Submitted batch job 12770078
 
+#RES_TRAIN_F=$(sbatch --parsable -e 'trainfast.out' -o 'trainfast.out' execute_gpu.sh python train/main_supervised_algolisp.py --train_to_convergence --max_epochs 45 --use_dc_grammar './saved_models/algolisp_dc_model.p' --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --load_trained_model --load_trained_model_path './saved_models/algolisp_holes_prelim.p' --save_model_path './saved_models/algolisp_holes_fast.p')
+#sbatch --dependency=afterok:$RES_TRAIN_F -e 'finalevalprelimfast.out' -o 'finalevalprelimfast.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9967 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model_fast" --model_path './saved_models/algolisp_holes_fast.p'
+#Submitted batch job 12770080
+
+#sbatch -e 'finalevalprelimr.out' -o 'finalevalprelimr.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --n_test 9967 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model_prelim_r"
+#Submitted batch job 12781202
+#sbatch -e 'finalevalprelimf.out' -o 'finalevalprelimf.out' execute_public_cpu.sh python eval/evaluate_algolisp.py --model_path "./saved_models/algolisp_holes_fast.p" --n_test 9967 --mdl 100 --queue --n_processes 44 --timeout 600 --max_to_check 20000 --resultsfile "results_model_prelim_f"
+#Submitted batch job 12781203

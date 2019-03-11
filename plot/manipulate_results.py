@@ -49,7 +49,7 @@ def solve_time_percentile(results, percentile, use_misses=False):
 	return np.percentile(time_list, percentile)
 
 def percent_solved_n_checked(results, n_checked):
-	return sum(any(result.hit and result.n_checked <= n_checked for result in result_list) for result_list in results.values())/len(results)
+	return 100*sum(any(result.hit and result.n_checked <= n_checked for result in result_list) for result_list in results.values())/len(results)
 	#speed this up!!!
 
 
