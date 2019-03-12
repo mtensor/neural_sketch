@@ -111,6 +111,7 @@ parser.add_argument('--exclude_geq', action='store_true')
 parser.add_argument('--exclude_gt', action='store_true')
 
 parser.add_argument('--digit_enc', action='store_true')
+parser.add_argument('--limit_IO_size', type=int, default=None)
 args = parser.parse_args()
 
 assert not (args.exclude_even and args.exclude_odd)
@@ -245,6 +246,7 @@ if __name__ == "__main__":
                                                 limit_data=args.limit_data,
                                                 seed=args.seed,
                                                 use_dataset_len=args.use_dataset_len,
+                                                limit_IO_size=args.limit_IO_size,
                                                 exclude=exclude)):
             specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
             if i==0: print("batchsize:", len(specs))
@@ -292,6 +294,7 @@ if __name__ == "__main__":
                         limit_data=args.limit_val_data,
                         use_fixed_seed=True,
                         seed=args.seed,
+                        limit_IO_size=args.limit_IO_size,
                         include_only=exclude): #TODO might not be correct to do this
                 specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
                 val_objective_iter, _ = model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)

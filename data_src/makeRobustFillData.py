@@ -56,7 +56,8 @@ def sample_datum(basegrammar,
 					dc_model=None,
 					use_timeout=False,
 					improved_dc_model=False,
-					nHoles=1):
+					nHoles=1,
+					input_noise=False):
 
 	#sample a program:
 	#with timing("sample program"):
@@ -67,6 +68,25 @@ def sample_datum(basegrammar,
 	#with timing("sample IO:"):
 	IO = generate_IO_examples(program, num_examples=N,  max_string_size=V)  # TODO
 	if IO is None: return None
+
+	if input_noise:
+		import random
+		import string
+		replace_with = random.choice(string.printable[:-4])
+		ex = random.choice(range(len(IO)))
+		i_or_o = random.choice(range(2))
+
+		old = IO[ex][i_or_o]
+		idx = random.choice( range(len(old)) )
+
+		mut = random.choice(range(3))
+		if mut ==0: #removal
+			IO[ex][i_or_o] = old[:idx]  + old[idx+1:]
+		elif mut==1: #sub
+			IO[ex][i_or_o] = old[:idx] + [replace_with] + old[idx+1:]
+		else: #insertion
+			IO[ex][i_or_o] = old[:idx] + [replace_with] + old[idx:]
+
 	IO = tuple(IO)
 	# find tp
 	tp = tprogram
@@ -147,7 +167,8 @@ def batchloader(size,
 				sample_fn=None,
 				use_timeout=False,
 				improved_dc_model=False,
-				nHoles=1):
+				nHoles=1,
+				input_noise=False):
 	data = (sample_datum(basegrammar,
 							N=N,
 							V=V,
@@ -160,7 +181,8 @@ def batchloader(size,
 							sample_fn=sample_fn,
 							use_timeout=use_timeout,
 							improved_dc_model=improved_dc_model,
-							nHoles=nHoles) for _ in repeat(0))
+							nHoles=nHoles,
+							input_noise=input_noise) for _ in repeat(0))
 	data = (x for x in data if x is not None)
 	if batchsize==1:	
 		yield from islice(data, size)

@@ -81,6 +81,7 @@ if __name__ == "__main__":
     parser.add_argument('--exclude_gt', action='store_true')
 
     parser.add_argument('--digit_enc', action='store_true')
+    parser.add_argument('--limit_IO_size', type=int, default=None)
     args = parser.parse_args()
 
     assert not (args.exclude_even and args.exclude_odd)
@@ -159,6 +160,7 @@ if __name__ == "__main__":
                                                 limit_data=args.limit_data,
                                                 seed=args.seed,
                                                 use_dataset_len=args.use_dataset_len,
+                                                limit_IO_size=args.limit_IO_size,
                                                 exclude=exclude)): #TODO
 
             spec = datum.spec if not args.IO2seq else datum.IO

@@ -76,6 +76,7 @@ parser.add_argument('--use_timeout', action='store_true')
 
 parser.add_argument('--improved_dc_model', action='store_true')
 parser.add_argument('--nHoles', type=int, default=3)
+parser.add_argument('--input_noise', action='store_true')
 
 args = parser.parse_args()
 
@@ -172,7 +173,8 @@ if __name__ == "__main__":
                                                 sample_fn=sample_fn,
                                                 use_timeout=args.use_timeout,
                                                 improved_dc_model=args.improved_dc_model,
-                                                nHoles=args.nHoles)):
+                                                nHoles=args.nHoles,
+                                                input_noise=args.input_noise)):
             IOs = tokenize_for_robustfill(batch.IOs)
             if args.timing: t = time.time()
             if not pretraining and args.use_rl:

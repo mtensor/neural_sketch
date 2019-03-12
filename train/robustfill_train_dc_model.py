@@ -57,6 +57,7 @@ parser.add_argument('--inv_temp', type=float, default=0.1) #idk what the deal wi
 parser.add_argument('--use_timeout', action='store_true', default=True)
 parser.add_argument('--nHoles', type=int, default=1)
 parser.add_argument('--use_dc_grammar', action='store_true')
+parser.add_argument('--input_noise', action='store_true')
 
 args = parser.parse_args()
 
@@ -118,7 +119,8 @@ if __name__ == "__main__":
                                                 top_k_sketches=args.k,
                                                 inv_temp=args.inv_temp,
                                                 nHoles=args.nHoles,
-                                                use_timeout=args.use_timeout)): #TODO
+                                                use_timeout=args.use_timeout,
+                                                input_noise=args.input_noise)): #TODO
 
 
             t = time.time()

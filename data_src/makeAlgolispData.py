@@ -18,7 +18,7 @@ import math
 import random
 from type import Context, arrow, tint, tlist, UnificationFailure
 
-from util.algolisp_util import convert_IO, tree_to_prog, make_holey_algolisp, AlgolispHole, tree_to_seq, seq_to_tree, tree_depth, check_subtree
+from util.algolisp_util import convert_IO, tree_to_prog, make_holey_algolisp, AlgolispHole, tree_to_seq, seq_to_tree, tree_depth, check_subtree, tokenize_for_dc
 
 from itertools import zip_longest, chain
 from functools import reduce
@@ -107,6 +107,7 @@ def convert_datum(ex,
 				include_only=None,
 				#include_all=None,
 				use_fixed_seed=False,
+				limit_IO_size=None,
 				rng=None):
 	if filter_depth:
 		#filter_depth should be an iterable of depths that are allowed
@@ -125,6 +126,13 @@ def convert_datum(ex,
 
 	#find IO
 	IO = convert_IO(ex.tests) #TODO
+
+	if limit_IO_size:
+		tokenized = []
+		for io in IO:
+			if len(tokenize_for_dc(io, digit_enc=True)) > limit_IO_size:
+				return None
+
 	schema_args = ex.schema.args
 	if only_passable:
 		executor_ = executor.LispExecutor()
@@ -191,6 +199,7 @@ def batchloader(data_file,
 				exclude=None,
 				include_only=None,
 				include_all=None,
+				limit_IO_size=None,
 				seed=42):
 	"""
 	Note: exclude and include_only take lists of expressions!!! don't get confused
@@ -250,6 +259,7 @@ def batchloader(data_file,
 			exclude=exclude,
 			include_only=include_only,
 			use_fixed_seed=use_fixed_seed,
+			limit_IO_size=limit_IO_size,
 			rng=seeded_random if use_fixed_seed else None) for batch in NearDataset for ex in batch if not remove_datum() ) #I assume batch has one ex
 	data = (x for x in data if x is not None)
 	#figure out how to deal with these
