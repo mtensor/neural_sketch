@@ -1,12 +1,23 @@
 #play with results
+import sys
+import os
+sys.path.append(os.path.abspath('./'))
+sys.path.append(os.path.abspath('./ec'))
 
 import matplotlib
 matplotlib.use('Agg')
+#added for camera ready so there are no type 3 fonts
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
 import matplotlib.pyplot as plt
 import dill
 import time
 import argparse
 from plot.p_solved_hack import hack_percent_solved_n_checked
+
+from data_src import makeRobustFillData
+sys.modules['makeRobustFillData'] = makeRobustFillData
 
 SMALL_SIZE = 14
 MEDIUM_SIZE = 16
@@ -24,8 +35,25 @@ plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
 
 mem_problem_list = ['results/dc_T45_0.25_800k_pypy.p', 'results/dc_T34_0.25_2M_pypy.p', 'results/dc_T45_0.25_2M_pypy.p']
 
+def solve_time_percentile(results, percentile, use_misses=False):
+	import numpy as np
+	#gather the list of times:
+	time_list = [] 
+	for result_list in results.values():
+			candidates = [ result.time for result in result_list if result.hit]
+			if len(candidates) > 0:
+				min_val = min( candidates)
+				time_list.append(min_val)
+			elif use_misses:
+				min_val = float('inf')
+				time_list.append(min_val)
+			else: #do nothing, because don't add to list
+				pass
+	#sum(any(result.hit and result.time <= time for result in result_list) for result_list in results.values())/len(results)
+	return np.percentile(time_list, percentile)
+
 def percent_solved_n_checked(results, n_checked):
-	return sum(any(result.hit and result.n_checked <= n_checked for result in result_list) for result_list in results.values())/len(results)
+	return 100*sum(any(result.hit and result.n_checked <= n_checked for result in result_list) for result_list in results.values())/len(results)
 	#speed this up!!!
 
 
@@ -96,14 +124,19 @@ def plot_result(results=None, baseresults=None, resultsfile=None, basefile='resu
 def plot_result_list(file_list, legend_list, filename, robustfill=False, plot_time=True, generalization=False, double=False, title='NA', max_budget=500000):
 	result_list = []
 	if double:
-		l = len(file_list)
-		fl = zip(file_list[:l],file_list[l:])
-		for f1, f2 in file_list:
+		print("WARNING: this is a major hack, don't try at home")
+		l = int(len(file_list)/2)
+		print("num:", l)
+		fl = zip(file_list[:l], file_list[l:])
+		for f1, f2 in fl:
 			with open(f1, 'rb') as savefile:
 				r1 = dill.load(savefile)
+				print("type:")
+				print(type(r1))
 			with open(f2, 'rb') as savefile:
 				r2 = dill.load(savefile)
-			result_list.append(r1+r2)
+			print("combining", f1, "and", f2, "...")
+			result_list.append({**r1, **r2})
 	else:
 		for file in file_list:
 			if file in mem_problem_list:

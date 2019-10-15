@@ -15,12 +15,12 @@ import math
 import time
 import dill
 import pickle
-from util.deepcoder_util import grammar as basegrammar
+from util.deepcoder_util import basegrammar
 from util.deepcoder_util import parseprogram, tokenize_for_robustfill
 from data_src.makeDeepcoderData import batchloader
 from plot.manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
 
-from util.pypy_util import DeepcoderResult, alternate, pypy_enumerate
+from util.pypy_util import DeepcoderResult, alternate, pypy_enumerate, SketchTup
 
 # TODO
 
@@ -30,6 +30,8 @@ from utilities import timing, callCompiled
 
 from itertools import islice, zip_longest
 
+from models import deepcoderModel
+sys.modules['deepcoderModel'] = deepcoderModel
 
 """ rough schematic of what needs to be done:
 1) Evaluate NN on test inputs
@@ -44,18 +46,22 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--pretrained', action='store_true')
 parser.add_argument('--n_test', type=int, default=500)
 parser.add_argument('--dcModel', action='store_true')
-parser.add_argument('--dcModel_path',type=str, default="./saved_models/dc_model.p")
+parser.add_argument('--dcModel_path',type=str, default="./saved_models/list_dc_model.p")
 parser.add_argument('--dc_baseline', action='store_true')
 parser.add_argument('--n_samples', type=int, default=30)
 parser.add_argument('--mdl', type=int, default=14)  #9
 parser.add_argument('--n_examples', type=int, default=5)
 parser.add_argument('--Vrange', type=int, default=128)
-parser.add_argument('--precomputed_data_file', type=str, default='data/prelim_val_data.p')
-parser.add_argument('--model_path', type=str, default="./saved_models/deepcoder_holes.p")
+parser.add_argument('--precomputed_data_file', type=str, default='data/prelim_val_data_new.p')
+parser.add_argument('--model_path', type=str, default="./saved_models/list_holes.p")
 parser.add_argument('--max_to_check', type=int, default=5000)
 parser.add_argument('--resultsfile', type=str, default='NA')
 parser.add_argument('--shuffled', action='store_true')
 parser.add_argument('--beam', action='store_true')
+parser.add_argument('--improved_dc_grammar', action='store_true')
+
+#parallel stuff
+#TODO
 args = parser.parse_args()
 
 nSamples = args.n_samples
@@ -63,6 +69,7 @@ mdl = args.mdl
 nExamples = args.n_examples
 Vrange = args.Vrange
 max_to_check = args.max_to_check
+improved_dc_grammar = args.improved_dc_grammar
 
 def untorch(g):
 	if type(g.logVariable) == float:
@@ -74,9 +81,10 @@ def untorch(g):
 
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	t = time.time()
+	results = []
 	samples = {("<HOLE>",)}  # make more general
 	n_checked, n_hit = 0, 0
-	g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)
+	
 	if model:
 		# can replace with a beam search at some point
 		# TODO: use score for allocating resources
@@ -87,28 +95,39 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 			samples, _scores, _ = model.sampleAndScore(tokenized, nRepeats=nRepeats)
 		# only loop over unique samples:
 		samples = {tuple(sample) for sample in samples}
-	sketches = []
+
+	if (not improved_dc_grammar) or (not dcModel):
+		g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)  # TODO pp
+		g = untorch(g)
+
+	sketchtups = []
 	for sample in samples:
 		try:
 			sk = parseprogram(sample, datum.tp)
-			sketches.append(sk)
 		except (ParseFailure, NoCandidates) as e:
 			n_checked += 1
-			yield DeepcoderResult(sample, None, False, n_checked, time.time()-t)
+			results.append(DeepcoderResult(sample, None, False, n_checked, time.time()-t))
 			continue
+
+		if improved_dc_grammar:
+			g = untorch(dcModel.infer_grammar((datum.IO, sample))) 
+		sketchtups.append(SketchTup(sk, g))
 	# only loop over unique sketches:
-	sketches = {sk for sk in sketches}
-	print(len(sketches))
-	print(sketches)
+	sketchtups = {sk for sk in sketchtups}
+	#print(len(sketches))
+	#print(sketches)
 	#alternate which sketch to enumerate from each time
-
-	results, n_checked, n_hit = pypy_enumerate(untorch(g), datum.tp, datum.IO, mdl, sketches, n_checked, n_hit, t, max_to_check)
-	yield from (result for result in results)
-
-	######TODO: want search time and total time to hit task ######
+	print(len(sketchtups))
+	print([sk.sketch for sk in sketchtups], sep='\n')
+	enum_results, n_checked, n_hit = pypy_enumerate(untorch(g), datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
+	
 	print(f"task {i}:")
 	print(f"evaluation for task {i} took {time.time()-t} seconds")
 	print(f"For task {i}, tried {n_checked} sketches, found {n_hit} hits", flush=True)
+	return results + enum_results
+
+	######TODO: want search time and total time to hit task ######
+
 
 def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	t = time.time()
@@ -117,7 +136,22 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	return {datum: list(evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check)) for i, datum in enumerate(dataset)}
 
 #TODO: refactor for strings
-
+def save_results(results, args):
+	timestr = str(int(time.time()))
+	r = '_test' + str(args.n_test) + '_'
+	if args.resultsfile != 'NA':
+		filename = 'results/' + args.resultsfile + '.p'
+	elif args.dc_baseline:
+		filename = "results/prelim_results_dc_baseline_" + r + timestr + '.p'
+	elif args.pretrained:
+		filename = "results/prelim_results_rnn_baseline_" + r + timestr + '.p'
+	else:
+		dc = 'wdcModel_' if args.dcModel else ''
+		filename = "results/prelim_results_" + dc + r + timestr + '.p'
+	with open(filename, 'wb') as savefile:
+		dill.dump(results, savefile)
+		print("results file saved at", filename)
+	return savefile
 
 
 if __name__=='__main__':
@@ -134,15 +168,16 @@ if __name__=='__main__':
 		dcModel = torch.load(args.dcModel_path)
 	else: dcModel = None
 
-	###load the test dataset###
-	# test_data = ['data/DeepCoder_test_data/T3_A2_V512_L10_P500.txt']
+	# ###load the test dataset###
+	# # test_data = ['data/DeepCoder_test_data/T3_A2_V512_L10_P500.txt']
 	# test_data = ['data/DeepCoder_test_data/T5_A2_V512_L10_P100_test.txt'] #modified from original
-	# test_data = ['data/DeepCoder_data/T3_A2_V512_L10_validation_perm.txt']
+	# # test_data = ['data/DeepCoder_data/T3_A2_V512_L10_validation_perm.txt']
 	# dataset = batchloader(test_data, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False)
 	# dataset = list(dataset)
-	# with open('data/prelim_val_data.p', 'wb') as savefile:
+	# with open('data/T5_test_data_new.p', 'wb') as savefile:
 	# 	pickle.dump(dataset, savefile)
 	# 	print("test file saved")
+	# assert False
 
 	print("data file:", args.precomputed_data_file)
 	with open(args.precomputed_data_file, 'rb') as datafile:

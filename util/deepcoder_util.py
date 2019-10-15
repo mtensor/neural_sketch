@@ -30,7 +30,10 @@ import math
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 
 productions = deepcoderProductions()  # TODO - figure out good production probs ... 
-grammar = Grammar.fromProductions(productions, logVariable=0.0)  # TODO
+basegrammar = Grammar.fromProductions(productions, logVariable=0.0)  # TODO
+
+def deepcoder_vocab(grammar, n_inputs=2): 
+    return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>']  # TODO
 
 def tokenize_for_robustfill(IOs):
     """
@@ -156,7 +159,16 @@ def parseprogram(pseq, request): #TODO
                     request, pseq, Context.EMPTY, [])
     return e
 
-def make_holey_deepcoder(prog, k, g, request, inv_temp=1.0, reward_fn=None, sample_fn=None, verbose=False, use_timeout=False):
+def make_holey_deepcoder(prog,
+                            k,
+                            g,
+                            request,
+                            inv_temp=1.0,
+                            reward_fn=None,
+                            sample_fn=None,
+                            verbose=False,
+                            use_timeout=False):
+    #need to add improved_dc_model=False, nHoles=1
     """
     inv_temp==1 => use true mdls
     inv_temp==0 => sample uniformly

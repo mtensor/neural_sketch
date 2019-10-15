@@ -28,9 +28,9 @@ from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 from deepcoderPrimitives import deepcoderProductions, flatten_program
 from utilities import timing
 
-from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab
+from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab, algolisp_IO_vocab, digit_enc_vocab
 from data_src.makeAlgolispData import batchloader
-from util.algolisp_util import tokenize_for_robustfill, tree_depth, seq_to_tree
+from util.algolisp_util import tokenize_for_robustfill, tree_depth, seq_to_tree, tokenize_IO_for_robustfill
 
 from train.algolisp_train_dc_model import newDcModel
 from collections import Counter
@@ -93,9 +93,43 @@ parser.add_argument('--limit_data', type=float, default=False)
 parser.add_argument('--train_to_convergence', action='store_true')
 
 parser.add_argument('--convergence_mode', type=str, default='dev')
-parser.add_argument('--limit_val_data', type=float, default=0.01) 
+parser.add_argument('--limit_val_data', type=float, default=0.02)
+parser.add_argument('--converge_after', type=int, default=5)
+parser.add_argument('--converge_after_iter', type=int, default=1250)
 
+parser.add_argument('--load_trained_model', action='store_true')
+parser.add_argument('--load_trained_model_path', type=str, default="./saved_models/algolisp_holes.p")
+
+parser.add_argument('--IO2seq', action='store_true')
+
+parser.add_argument('--seed', type=int, default=42)
+parser.add_argument('--use_dataset_len', type=int, default=False)
+
+parser.add_argument('--exclude_odd', action='store_true')
+parser.add_argument('--exclude_even', action='store_true')
+parser.add_argument('--exclude_geq', action='store_true')
+parser.add_argument('--exclude_gt', action='store_true')
+
+parser.add_argument('--digit_enc', action='store_true')
+parser.add_argument('--limit_IO_size', type=int, default=None)
 args = parser.parse_args()
+
+assert not (args.exclude_even and args.exclude_odd)
+
+#xor all the options classes:
+if any( [args.exclude_even, args.exclude_odd, args.exclude_geq]):
+    assert (args.exclude_even or args.exclude_odd) != args.exclude_geq
+
+if args.exclude_odd:
+    exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "1"]] ]
+elif args.exclude_even: 
+    exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "0"]] ] 
+elif args.exclude_geq:
+    exclude = [">="]
+elif args.exclude_gt:
+    exclude = [">"]
+else: 
+    exclude = None
 
 #assume we want num_half_life half lives to occur by the r_max value ...
 #alpha = math.log(2)*args.num_half_lifes/math.exp(args.r_max)
@@ -126,12 +160,22 @@ else:
 improved_dc_model = args.improved_dc_model
 
 vocab = list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
-inputvocab = algolisp_input_vocab #TODO
+
+if args.IO2seq and args.digit_enc:
+    import string
+    inputvocab = list(digit_enc_vocab()) 
+elif args.IO2seq:
+    inputvocab = list(algolisp_IO_vocab())
+else:
+    inputvocab = algolisp_input_vocab
 
 if __name__ == "__main__":
     print("Loading model", flush=True)
     try:
         if args.new: raise FileNotFoundError
+        elif args.load_trained_model:
+            model=torch.load(args.load_trained_model_path)
+            print("loading saved trained model, continuing training")
         else:
             model=torch.load(args.load_pretrained_model_path)
             print('found saved model, loaded pretrained model (without holes)')
@@ -152,7 +196,7 @@ if __name__ == "__main__":
 
     if use_dc_grammar:
         print("loading dc model")
-        dc_model=newDcModel()
+        dc_model=newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
         dc_model.load_state_dict(torch.load(dc_model_path))
         dc_model.cuda()
 
@@ -199,8 +243,13 @@ if __name__ == "__main__":
                                                 use_timeout=args.use_timeout,
                                                 filter_depth=args.filter_depth,
                                                 nHoles=args.nHoles,
-                                                limit_data=args.limit_data)):
-            specs = tokenize_for_robustfill(batch.specs)
+                                                limit_data=args.limit_data,
+                                                seed=args.seed,
+                                                use_dataset_len=args.use_dataset_len,
+                                                use_IO=args.IO2seq,
+                                                limit_IO_size=args.limit_IO_size,
+                                                exclude=exclude)):
+            specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
             if i==0: print("batchsize:", len(specs))
             if args.timing: t = time.time()
             objective, syntax_score = model.optimiser_step(specs, batch.pseqs if pretraining else batch.sketchseqs)
@@ -229,7 +278,7 @@ if __name__ == "__main__":
         else: model.epochs += 1
 
         #code for determining if training to convergence
-        if args.train_to_convergence:
+        if args.train_to_convergence and j >= args.converge_after and ((model.pretrain_iteration if pretraining else model.iteration) >= args.converge_after_iter): #completed at least 3 epochs ... 
             val_objective = 0
             for batch in batchloader(args.convergence_mode,
                         batchsize=batchsize,
@@ -243,10 +292,16 @@ if __name__ == "__main__":
                         use_timeout=args.use_timeout,
                         filter_depth=args.filter_depth,
                         nHoles=args.nHoles,
-                        limit_data=args.val_limit_data,
-                        use_fixed_seed=True): #TODO
-                val_objective, _ += model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
-            print("epoch", model.epoch, "score:", val_objective, flush=True)
+                        limit_data=args.limit_val_data,
+                        use_fixed_seed=True,
+                        seed=args.seed,
+                        limit_IO_size=args.limit_IO_size,
+                        use_IO=args.IO2seq,
+                        include_only=exclude): #TODO might not be correct to do this
+                specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
+                val_objective_iter, _ = model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)
+                val_objective += val_objective_iter.mean()
+            print("epoch", model.pretrain_epochs if pretraining else model.epochs, "score:", val_objective, flush=True)
             if pretraining:
                 model.pretrain_val_scores.append(val_objective)
             else:

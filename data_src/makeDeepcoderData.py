@@ -6,7 +6,8 @@ sys.path.append(os.path.abspath('./ec'))
 
 import pickle
 from util.deepcoder_util import parseprogram, make_holey_deepcoder
-from util.deepcoder_util import grammar as basegrammar
+from util.algolisp_util import make_holey_algolisp
+from util.deepcoder_util import basegrammar
 import time
 from collections import namedtuple
 #Function = namedtuple('Function', ['src', 'sig', 'fun', 'bounds'])
@@ -34,11 +35,9 @@ def make_deepcoder_data(filename, with_holes=False, size=10000000, k=20):
 	for i in range(size):
 		inst = getInstance(with_holes=with_holes, k=k)
 		data_list.append(inst)
-
-
+		
 		if i%save_freq==0:
 			#save data
-			
 			print(f"iteration {i} out of {size}")
 			print("saving data")
 			with open(filename, 'wb') as file:
@@ -94,7 +93,20 @@ def convert_dc_program_to_ec(dc_program, tp):
 	return prog
 
 
-def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, dc_model=None, use_timeout=False):
+def convert_source_to_datum(source,
+							N=5,
+							V=512,
+							L=10,
+							compute_sketches=False,
+							top_k_sketches=20,
+							inv_temp=1.0,
+							reward_fn=None,
+							sample_fn=None,
+							dc_model=None,
+							use_timeout=False,
+							improved_dc_model=False,
+							nHoles=1):
+
 	source = source.replace(' | ', '\n')
 	dc_program = compile(source, V=V, L=L)
 
@@ -121,8 +133,32 @@ def convert_source_to_datum(source, N=5, V=512, L=10, compute_sketches=False, to
 	if compute_sketches:
 		# find sketch
 
-		grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO) #This line needs to change
-		sketch, reward, sketchprob = make_holey_deepcoder(p, top_k_sketches, grammar, tp, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) #TODO
+		# grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO) #This line needs to change
+		# sketch, reward, sketchprob = make_holey_deepcoder(p,
+		# 												top_k_sketches,
+		# 												grammar,
+		# 												tp,
+		# 												inv_temp=inv_temp,
+		# 												reward_fn=reward_fn,
+		# 												sample_fn=sample_fn,
+		# 												use_timeout=use_timeout,
+		# 												improved_dc_model=improved_dc_model,
+		# 												nHoles=nHoles) #TODO
+
+		sketch, reward, sketchprob = make_holey_algolisp(p,
+															top_k_sketches,
+															tp,
+															basegrammar,
+															dcModel=dc_model,
+															improved_dc_model=improved_dc_model,
+															return_obj=Hole,
+															dc_input=IO,
+															inv_temp=inv_temp,
+															reward_fn=reward_fn,
+															sample_fn=sample_fn,
+															use_timeout=use_timeout,
+															nHoles=nHoles,
+															domain='list')
 
 		# find sketchseq
 		sketchseq = tuple(flatten_program(sketch))
@@ -138,27 +174,80 @@ def grouper(iterable, n, fillvalue=None):
 	args = [iter(iterable)] * n
 	return zip_longest(*args, fillvalue=fillvalue)
 
-def single_batchloader(data_file, batchsize=100, N=5, V=512, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
+def single_batchloader(data_file,
+						batchsize=100,
+						N=5,
+						V=512,
+						L=10,
+						compute_sketches=False,
+						dc_model=None,
+						shuffle=True,
+						top_k_sketches=20,
+						inv_temp=1.0,
+						reward_fn=None,
+						sample_fn=None,
+						use_timeout=False,
+						improved_dc_model=False,
+						nHoles=1):
 	lines = (line.rstrip('\n') for i, line in enumerate(open(data_file)) if i != 0) #remove first line
 	if shuffle:
 		lines = list(lines)
 		random.shuffle(lines)
 
-	if batchsize==1:
-		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) for line in lines)
-		yield from (x for x in data if x is not None)
-	else:
-		data = (convert_source_to_datum(line, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, top_k_sketches=20, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) for line in lines)
-		data = (x for x in data if x is not None)
-		grouped_data = grouper(data, batchsize)
+	data = (convert_source_to_datum(line,
+									N=N,
+									V=V,
+									L=L,
+									compute_sketches=compute_sketches,
+									dc_model=dc_model,
+									top_k_sketches=20,
+									inv_temp=inv_temp,
+									reward_fn=reward_fn,
+									sample_fn=sample_fn,
+									use_timeout=use_timeout,
+									improved_dc_model=improved_dc_model,
+									nHoles=nHoles) for line in lines)
+	data = (x for x in data if x is not None)
 
+	if batchsize==1:
+		yield from data
+	else:
+		grouped_data = grouper(data, batchsize)
 		for group in grouped_data:
 			tps, ps, pseqs, IOs, sketchs, sketchseqs, rewards, sketchprobs = zip(*[(datum.tp, datum.p, datum.pseq, datum.IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob) for datum in group if datum is not None])
 			yield Batch(tps, ps, pseqs, IOs, sketchs, sketchseqs, torch.FloatTensor(rewards) if any(r is not None for r in rewards) else None, torch.FloatTensor(sketchprobs) if any(s is not None for s in sketchprobs) else None)  # check that his works 
 
-def batchloader(data_file_list, batchsize=100, N=5, V=512, L=10, compute_sketches=False, dc_model=None, shuffle=True, top_k_sketches=20, inv_temp=1.0, reward_fn=None, sample_fn=None, use_timeout=False):
-	yield from chain(*[single_batchloader(data_file, batchsize=batchsize, N=N, V=V, L=L, compute_sketches=compute_sketches, dc_model=dc_model, shuffle=shuffle, top_k_sketches=top_k_sketches, inv_temp=inv_temp, reward_fn=reward_fn, sample_fn=sample_fn, use_timeout=use_timeout) for data_file in data_file_list])
-
+def batchloader(data_file_list,
+				batchsize=100,
+				N=5,
+				V=512,
+				L=10,
+				compute_sketches=False,
+				dc_model=None,
+				shuffle=True,
+				top_k_sketches=20,
+				inv_temp=1.0,
+				reward_fn=None,
+				sample_fn=None,
+				use_timeout=False,
+				#new
+				improved_dc_model=False,
+				nHoles=1):
+	yield from chain(*[single_batchloader(data_file,
+											batchsize=batchsize,
+											N=N,
+											V=V,
+											L=L,
+											compute_sketches=compute_sketches,
+											dc_model=dc_model,
+											shuffle=shuffle,
+											top_k_sketches=top_k_sketches,
+											inv_temp=inv_temp,
+											reward_fn=reward_fn,
+											sample_fn=sample_fn,
+											use_timeout=use_timeout,
+											improved_dc_model=improved_dc_model,
+											nHoles=nHoles) for data_file in data_file_list])
 
 if __name__=='__main__':
 	from itertools import islice
@@ -176,7 +265,15 @@ if __name__=='__main__':
 	import models.deepcoderModel as deepcoderModel
 	dcModel = torch.load("./saved_models/dc_model.p")
 
-	for datum in islice(batchloader([train_data], batchsize=1, N=5, V=128, L=10, compute_sketches=True, top_k_sketches=20, inv_temp=0.25, use_timeout=True), 1):
+	for datum in islice(batchloader([train_data],
+										batchsize=1,
+										N=5,
+										V=128,
+										L=10,
+										compute_sketches=True,
+										top_k_sketches=20,
+										inv_temp=0.25,
+										use_timeout=True), 1):
 
 		print("program:", datum.p)
 		print("sketch: ", datum.sketch)

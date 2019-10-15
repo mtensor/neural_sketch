@@ -16,11 +16,11 @@ import dill
 import copy
 
 from util.algolisp_pypy_util import AlgolispResult, SketchTup, alternate, pypy_enumerate, algolisp_enumerate #TODO
-from util.algolisp_util import tokenize_for_robustfill, seq_to_tree, tree_to_prog, tree_depth  # TODO
+from util.algolisp_util import tokenize_for_robustfill, seq_to_tree, tree_to_prog, tree_depth, tokenize_IO_for_robustfill  # TODO
 from data_src.makeAlgolispData import batchloader, basegrammar
 from train.algolisp_train_dc_model import newDcModel
 
-from plot.manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
+from plot.manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result, solve_time_percentile
 
 from grammar import Grammar
 from itertools import islice
@@ -36,7 +36,7 @@ import traceback
 #train & use dcModel
 #which requires converting programs to EC domain
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_test', type=int, default=10819) #only_passable length is 9807
+parser.add_argument('--n_test', type=int, default=9967) #only_passable length is 9807 for dev, 8903 for eval, total eval is 9967
 parser.add_argument('--dcModel', action='store_true', default=True)
 parser.add_argument('--dcModel_path',type=str, default="./saved_models/algolisp_dc_model.p")
 parser.add_argument('--improved_dc_grammar', action='store_true', default=True)
@@ -60,8 +60,19 @@ parser.add_argument('--only_passable', action='store_true')
 parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
 parser.add_argument('--timeout', type=int, default=None)
 parser.add_argument('--debug', action='store_true')
+parser.add_argument('--IO2seq', action='store_true')
+parser.add_argument('--odd', action='store_true')
+parser.add_argument('--even', action='store_true')
+parser.add_argument('--geq', action='store_true')
+parser.add_argument('--leq', action='store_true')
+parser.add_argument('--lt', action='store_true')
+parser.add_argument('--gt', action='store_true')
+parser.add_argument('--n_split', default=None, type=int)
+parser.add_argument('--start_at_debug', default=None, type=int)
+parser.add_argument('--digit_enc', action='store_true')
 args = parser.parse_args()
 
+assert not (args.even and args.odd)
 args.cpu = args.cpu or args.parallel #if parallel, then it must be cpu only
 nSamples = args.n_samples
 mdl = args.mdl
@@ -86,10 +97,12 @@ def untorch(g):
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeout=None):
 	try:
 		if timeout is not None:
-			print("hit set timeout")
+			#print("hit set timeout")
 			def timeoutCallBack(_1, _2): raise EvaluationTimeout()
-			signal.signal(signal.SIGVTALRM, timeoutCallBack)
-			signal.setitimer(signal.ITIMER_VIRTUAL, timeout)
+			#signal.signal(signal.SIGVTALRM, timeoutCallBack)
+			#signal.setitimer(signal.ITIMER_REAL, timeout)
+			signal.signal(signal.SIGALRM, timeoutCallBack)
+			signal.alarm(timeout)
 
 		t = time.time()
 		results = []
@@ -101,15 +114,17 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 			torch.set_num_threads(1)
 			tnet = time.time()
 			#print("task", i, "started using rnn")
+			spec = tokenize_for_robustfill([datum.spec]) if not args.IO2seq else tokenize_IO_for_robustfill([datum.IO], digit_enc=args.digit_enc)
 			if args.beam:
-				samples, _scores = model.beam_decode(tokenize_for_robustfill([datum.spec]), beam_size=nRepeats)
+				samples, _scores = model.beam_decode(spec, beam_size=nRepeats)
 			else:
-				samples, _scores, _ = model.sampleAndScore(tokenize_for_robustfill([datum.spec]), nRepeats=nRepeats)
-			#print("task", i, "done with rnn, took", time.time()-tnet, "seconds")
+				samples, _scores, _ = model.sampleAndScore(spec, nRepeats=nRepeats)
+
+			#print("task", i, "done with rnn, took", time.time()-t, "seconds", flush=True)
 			# only loop over unique samples:
 			samples = {tuple(sample) for sample in samples}  # only 
 		if (not improved_dc_grammar) or (not dcModel):
-			g = basegrammar if not dcModel else dcModel.infer_grammar(datum.spec)  # TODO pp
+			g = basegrammar if not dcModel else dcModel.infer_grammar((datum.spec if not args.IO2seq else datum.IO))  # TODO pp
 			g = untorch(g)
 		sketchtups = []
 		for sample in samples:
@@ -117,6 +132,10 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 				tr = seq_to_tree(sample)
 				#print(tr)
 				sk = tree_to_prog(tr)
+
+			except EvaluationTimeout:
+				raise EvaluationTimeout()
+
 			except Exception as e: # TODO: needs to be fixed
 				traceback.clear_frames(e.__traceback__)
 				print("EXCEPTION IN PARSE:,", e)
@@ -127,7 +146,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 				continue
 
 			if improved_dc_grammar:
-				g = untorch(dcModel.infer_grammar((datum.spec, sample))) 
+				g = untorch(dcModel.infer_grammar(( (datum.spec if not args.IO2seq else datum.IO), sample))) 
 
 			sketchtups.append(SketchTup(sk, g))
 
@@ -136,10 +155,11 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 		#print("sketchtups:", sketchtups)
 
 		#alternate which sketch to enumerate from each time
+		#print("task", i, "starting enum outer, took", time.time()-t, "seconds", flush=True)
 		if args.pypy:
-			enum_results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
+			enum_results, n_checked, n_hit = pypy_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check, i)
 		else:
-			enum_results, n_checked, n_hit = algolisp_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check) #might need more than IO
+			enum_results, n_checked, n_hit = algolisp_enumerate(datum.tp, datum.IO, datum.schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check, i) #might need more than IO
 		del sketchtups
 		#del g
 		if model:
@@ -148,18 +168,24 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check, timeou
 			del dcModel
 		return results + enum_results
 
+	except KeyError as e:
+		print("on task", i, "KeyError:", e)
+		return [AlgolispResult(None, None, False, n_checked, time.time()-t)]
+
 	except EvaluationTimeout:
 		print("Timed out while evaluating task", i)
 		return [AlgolispResult(None, None, False, n_checked, time.time()-t)]
 
 	finally:
 		######TODO: want search time and total time to hit task ######
+		if timeout is not None:
+			#signal.signal(signal.SIGVTALRM, lambda *_: None)
+			#signal.setitimer(signal.ITIMER_REAL, 0)
+			signal.alarm(0)
 		print(f"task {i}:")
 		print(f"evaluation for task {i} took {time.time()-t} seconds")
 		print(f"For task {i}, tried {n_checked} candidates, found {n_hit} hits", flush=True)
-		if timeout is not None:
-			signal.signal(signal.SIGVTALRM, lambda *_: None)
-			signal.setitimer(signal.ITIMER_VIRTUAL, 0)
+
 
 
 def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
@@ -183,29 +209,17 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 						ret = f(val)
 
 						if args.debug:
-
 							from pympler import summary
 							from pympler import muppy
 							all_objects = muppy.get_objects()
 							sum1 = summary.summarize(all_objects)
 							print("summary:")
 							summary.print_(sum1)
-
 							from pympler import tracker
 							tr = tracker.SummaryTracker()
 							print("diff:")
 							tr.print_diff()
 
-							# import objgraph
-							# print("growth:")
-							# objgraph.show_growth()
-							# print("most common types:")
-							# objgraph.show_most_common_types()
-
-							# print("leaky objects:")
-							# roots = objgraph.get_leaking_objects()
-							# objgraph.show_most_common_types(objects=roots)
-						# send the response / results
 						outQ.put( ret )
 					except Exception as e:
 						print("error!", e)
@@ -238,7 +252,7 @@ def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 			    w.start()
 			# gather some data
 			data_list = enumerate(dataset)
-			results_list = process_data(data_list, inQ, outQ) #can just also have lenght of list
+			results_list = process_data(data_list, inQ, outQ) #can just also have length of list
 			# tell all workers, no more data (one msg for each)
 			for i in range(args.n_processes):
 			    inQ.put(None)
@@ -291,27 +305,44 @@ if __name__=='__main__':
 		print("loading dcModel")
 		
 		if args.cpu:
-			dcModel=newDcModel(cuda=False)
+			dcModel=newDcModel(cuda=False, IO2seq=args.IO2seq, digit_enc=args.digit_enc)
 			dcModel.load_state_dict(torch.load(args.dcModel_path, map_location=lambda storage, loc: storage))
 		else:
-			dcModel=newDcModel()
+			dcModel=newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
 			dcModel.load_state_dict(torch.load(args.dcModel_path))
 			dcModel.cuda()
 	else: dcModel = None
 
 	###load the test dataset###
-	dataset = batchloader(args.dataset,
+	if args.odd:
+		include_only = [ ["lambda1", ["==", ["%", "arg1", "2"], "1"]] ]
+	elif args.even: 
+		include_only = [ ["lambda1", ["==", ["%", "arg1", "2"], "0"]] ] 
+	elif args.leq:
+		include_only = ["<="]
+	elif args.geq:
+		include_only = [">="]
+	elif args.gt:
+		include_only = [">"]
+	elif args.lt:
+		include_only = ["<"]
+	else: 
+		include_only = None
+
+	full_dataset = batchloader(args.dataset,
 							batchsize=1,
                             compute_sketches=False,
                             dc_model=None,
                             improved_dc_model=False,
                             only_passable=args.only_passable,
-                            filter_depth=args.filter_depth) #TODO
-	dataset = islice(dataset, args.n_test)
+                            filter_depth=args.filter_depth,
+                            include_only=include_only) #TODO
+	
 
 	# from collections import Counter
 
-
+	if args.start_at_debug:
+		full_dataset = islice(full_dataset, args.start_at_debug, args.n_test)
 	# c = Counter()
 	# c.update(tree_depth(seq_to_tree(d.pseq)) for d in dataset)
 	# print(c)
@@ -324,21 +355,68 @@ if __name__=='__main__':
 		i, datum = i_datum
 		return (datum, list(f_partial(i,datum)))
 
-	results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel)
+	if args.n_split:
+		cutsize = int(args.n_test/args.n_split)
+		results = {}
+		for i in range(0,  args.n_test, cutsize):
+			dataset = islice(full_dataset, i, i+cutsize)
+			results.update(evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel) )
+
+	else:
+		dataset = islice(full_dataset, args.n_test)
+		results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel)
 
 	# count hits
 	hits = sum(any(result.hit for result in result_list) for result_list in results.values())
 	print(f"hits: {hits} out of {len(results)}, or {100*hits/len(results)}% accuracy")
 
 	# I want a plot of the form: %solved vs n_hits
-	x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 400, 600, 800, 900, 1000, 2000, 4000]  # TODO
-	y_axis = [percent_solved_n_checked(results, x) for x in x_axis]
+	# x_axis = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 400, 600, 800, 900, 1000, 2000, 4000]  # TODO
+	# y_axis = [percent_solved_n_checked(results, x) for x in x_axis]
 
-	print("percent solved vs number of evaluated programs")
-	print("num_checked:", x_axis)
-	print("num_solved:", y_axis)
+	# print("percent solved vs number of evaluated programs")
+	# print("num_checked:", x_axis)
+	# print("num_solved:", y_axis)
 
 	file = save_results(results, args)
+
+	print("25th percentile solve time:")
+	print(solve_time_percentile(results, 25, use_misses=False))
+
+	print("median solve time:")
+	print(solve_time_percentile(results, 50, use_misses=False))
+
+	print("75th percentile solve time:")
+	print(solve_time_percentile(results, 75, use_misses=False))
+
+	print("FILTERED:")
+	filt_list = list(islice(batchloader(args.dataset,
+											batchsize=1,
+											compute_sketches=False,
+											only_passable=True,
+											include_only=include_only), args.n_test))
+	filtered_results = {key: val for key, val in results.items() if any(hash(key) == hash(filt) for filt in filt_list)}
+
+	filtered_hits = sum(any(result.hit for result in result_list) for result_list in filtered_results.values())
+
+
+	from util.algolisp_pypy_util import test_program_on_IO
+	from program_synthesis.algolisp.dataset import executor
+
+	executor_ = executor.LispExecutor()
+	filtered_results = {key: val for key, val in results.items() if test_program_on_IO(key.p.evaluate([]), key.IO, key.schema_args, executor_)}
+	print(f"hits: {filtered_hits} out of {len(filtered_results)}, or {100*filtered_hits/len(filtered_results)}% accuracy")
+
+	file = save_results(results, args)
+
+	print("25th percentile solve time:")
+	print(solve_time_percentile(filtered_results, 25, use_misses=False))
+
+	print("median solve time:")
+	print(solve_time_percentile(filtered_results, 50, use_misses=False))
+
+	print("75th percentile solve time:")
+	print(solve_time_percentile(filtered_results, 75, use_misses=False))
 
 	#plot_result(results=results, plot_time=True, model_path=args.model_path) #doesn't account for changing result thingy
 

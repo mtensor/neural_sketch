@@ -20,6 +20,6 @@ test_data = ['data/DeepCoder_data/T44_test.txt']
 #test_data = ['data/DeepCoder_data/T2_A2_V512_L10_test_perm.txt']
 dataset = batchloader(test_data, batchsize=1, N=5, V=Vrange, L=10, compute_sketches=False)
 dataset = list(islice(dataset, 500))
-with open('data/T44_test.p', 'wb') as savefile:
+with open('data/T44_test_new.p', 'wb') as savefile:
 	pickle.dump(dataset, savefile)
 	print("test file saved")

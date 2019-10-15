@@ -52,7 +52,7 @@ def alternate(*args):
 				yield item
 
 
-def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check):
+def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check, i):
 	results = []
 	executor_ = executor.LispExecutor()
 
@@ -69,8 +69,13 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 	sIterable = list(map(f, sketchtups))
 
 	hit = False
+	#print("task", i, "starting enum loop inner, took", time.time()-t, "seconds", flush=True)
 	for sketch, xp in alternate(* sIterable ):
-		_, _, p = xpcp
+		#prevent overflow maybe?
+		if n_checked % 1000 == 0: 
+			executor.code_lisp._EXECUTION_CACHE = {}
+			executor_ = executor.LispExecutor()
+		_, _, p = xp
 		e = p.evaluate([])
 		#print(e)
 		hit = test_program_on_IO(e, IO, schema_args, executor_)
@@ -85,7 +90,7 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 			del xp
 			break
 	if n_checked < len(sketchtups) and not hit: print("WARNING: not all candidate sketches checked")
-
+	#print("task", i, "done enum loop inner, took", time.time()-t, "seconds", flush=True)
 	del executor_
 	del sIterable
 	del f
@@ -96,6 +101,6 @@ def algolisp_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t
 
 
 #pypy_enumerate(datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
-def pypy_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check):
-	return callCompiled(algolisp_enumerate, tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check)
+def pypy_enumerate(tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check, i):
+	return callCompiled(algolisp_enumerate, tp, IO, schema_args, mdl, sketchtups, n_checked, n_hit, t, max_to_check, i)
 	#if pypy doesn't work we can just call algolisp_enumerate normally

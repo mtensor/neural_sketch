@@ -16,9 +16,10 @@ parser.add_argument('--generalization', action='store_true')
 parser.add_argument('--notime', action='store_true')
 parser.add_argument('--title', type=str, default='NA')
 parser.add_argument('--max_budget', type=int, default=500000)
+parser.add_argument('--double', action='store_true')
 args = parser.parse_args()
 
 if __name__=='__main__':
 	args.legend_list = [l.replace('_', ' ') for l in args.legend_list]
 	print(args.legend_list)
-	plot_result_list(args.file_list, args.legend_list, args.filename, robustfill=args.robustfill, plot_time=(not args.notime), generalization=args.generalization, title=args.title, max_budget=args.max_budget)
+	plot_result_list(args.file_list, args.legend_list, args.filename, robustfill=args.robustfill, plot_time=(not args.notime), generalization=args.generalization, title=args.title, max_budget=args.max_budget, double=args.double)

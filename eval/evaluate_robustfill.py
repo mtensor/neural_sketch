@@ -14,13 +14,13 @@ import math
 import time
 import dill
 import pickle
-from util.robustfill_util import basegrammar
+from util.rb_pypy_util import basegrammar
 from util.robustfill_util import parseprogram, tokenize_for_robustfill
-from data.makeRobustFillData import batchloader, Datum
+from data_src.makeRobustFillData import batchloader, Datum
 from plot.manipulate_results import percent_solved_n_checked, percent_solved_time, plot_result
 from models.deepcoderModel import load_rb_dc_model_from_path, LearnedFeatureExtractor, DeepcoderRecognitionModel, RobustFillLearnedFeatureExtractor
 
-from util.rb_pypy_util import RobustFillResult, rb_pypy_enumerate
+from util.rb_pypy_util import RobustFillResult, rb_pypy_enumerate, SketchTup
 
 from util.pypy_util import alternate
 
@@ -42,22 +42,25 @@ so I need to build parseprogram, beam search and that may be it.
 """
 parser = argparse.ArgumentParser()
 parser.add_argument('--pretrained', action='store_true')
-parser.add_argument('--pretrained_model_path', type=str, default="./robustfill_pretrained.p")
+parser.add_argument('--pretrained_model_path', type=str, default="./saved_models/text_pretrained.p")
 parser.add_argument('--n_test', type=int, default=500)
 parser.add_argument('--dcModel', action='store_true')
-parser.add_argument('--dc_model_path', type=str, default="./robustfill_dc_model.p")
+parser.add_argument('--dc_model_path', type=str, default="./saved_models/text_dc_model.pstate_dict")
 parser.add_argument('--dc_baseline', action='store_true')
 parser.add_argument('--n_samples', type=int, default=30)
 parser.add_argument('--mdl', type=int, default=17)  #9
 parser.add_argument('--n_rec_examples', type=int, default=4)
 parser.add_argument('--max_length', type=int, default=25)
 parser.add_argument('--max_index', type=int, default=4)
-parser.add_argument('--precomputed_data_file', type=str, default='rb_test_tasks.p')
-parser.add_argument('--model_path', type=str, default="./robustfill_holes.p")
+parser.add_argument('--precomputed_data_file', type=str, default='saved_models/rb_test_tasks.p')
+parser.add_argument('--model_path', type=str, default="./saved_models/text_holes.p")
 parser.add_argument('--max_to_check', type=int, default=5000)
 parser.add_argument('--resultsfile', type=str, default='NA')
 parser.add_argument('--test_generalization', action='store_true')
 parser.add_argument('--beam', action='store_true')
+parser.add_argument('--improved_dc_grammar', action='store_true')
+parser.add_argument('--noise_eval', action='store_true')
+#parallel stuff
 args = parser.parse_args()
 
 nSamples = args.n_samples
@@ -65,18 +68,22 @@ mdl = args.mdl
 n_rec_examples = args.n_rec_examples
 
 max_to_check = args.max_to_check
+improved_dc_grammar = args.improved_dc_grammar
 
 
 def untorch(g):
+	if type(g.logVariable) == float:
+		return g
 	return Grammar(g.logVariable.data.tolist()[0], 
                                [ (l.data.tolist()[0], t, p)
                                  for l, t, p in g.productions])
 
 def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	t = time.time()
+	results = []
 	samples = {("<HOLE>",)}  # make more general
 	n_checked, n_hit = 0, 0
-	g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)
+	#g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)
 	if model:
 		# can replace with a beam search at some point
 		# TODO: use score for allocating resources
@@ -88,27 +95,38 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 
 		# only loop over unique samples:
 		samples = {tuple(sample) for sample in samples}
-	sketches = []
+
+	if (not improved_dc_grammar) or (not dcModel):
+		g = basegrammar if not dcModel else dcModel.infer_grammar(datum.IO)  # TODO pp
+		g = untorch(g)
+
+	sketchtups = []
 	for sample in samples:
 		try:
 			sk = parseprogram(sample, datum.tp)
-			sketches.append(sk)
 		except (ParseFailure, NoCandidates) as e:
 			n_checked += 1
-			yield RobustFillResult(sample, None, False, n_checked, time.time()-t, False)
+			results.append(RobustFillResult(sample, None, False, n_checked, time.time()-t, False))
 			continue
-	# only loop over unique sketches:
-	sketches = {sk for sk in sketches}
-	print(len(sketches))
-	print(sketches)
-	#alternate which sketch to enumerate from each time
-	results, n_checked, n_hit = rb_pypy_enumerate(untorch(g), datum.tp, datum.IO, mdl, sketches, n_checked, n_hit, t, max_to_check, args.test_generalization, n_rec_examples)
-	yield from (result for result in results)
 
+		if improved_dc_grammar:
+			g = untorch(dcModel.infer_grammar((datum.IO, sample))) 
+		sketchtups.append(SketchTup(sk, g))
+
+	# only loop over unique sketches:
+	sketchtups = {sk for sk in sketchtups}
+	#print(len(sketches))
+	#print(sketches)
+	#alternate which sketch to enumerate from each time
+	enum_results, n_checked, n_hit = rb_pypy_enumerate(datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, args.test_generalization, n_rec_examples, input_noise=args.noise_eval)
+	
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
 	print(f"evaluation for task {i} took {time.time()-t} seconds")
 	print(f"For task {i}, tried {n_checked} sketches, found {n_hit} hits", flush=True)
+	return results + enum_results
+
+
 
 def evaluate_dataset(model, dataset, nRepeats, mdl, max_to_check, dcModel=None):
 	t = time.time()
@@ -134,6 +152,42 @@ def save_results(results, args):
 		print("results file saved at", filename)
 	return savefile
 
+def randomize_IO(IO):
+	IO = list(IO)
+	import string
+	replace_with = random.choice(string.printable[:-4])
+	ex = random.choice(range(len(IO)))
+	i_or_o = random.choice(range(2))
+
+	old = IO[ex][i_or_o]
+
+	IO[ex] = list(IO[ex])
+
+	ln = len(old)
+	if ln >= 1:
+		idx = random.choice( range(ln) )
+
+		mut = random.choice(range(3))
+
+		if type(IO[ex]) == tuple:
+			IO[ex] = list(IO[ex])
+
+		if mut ==0: #removal
+			IO[ex][i_or_o] = old[:idx]  + old[idx+1:]
+		elif mut==1: #sub
+			IO[ex][i_or_o] = old[:idx] + replace_with + old[idx+1:]
+		else: #insertion
+			IO[ex][i_or_o] = old[:idx] + replace_with + old[idx:]
+
+	IO = tuple(IO)
+	return IO
+
+def randomize_datum(datum):
+	#class Datum():
+	#def __init__(self, tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob):
+	IO = randomize_IO(datum.IO)
+	return Datum(datum.tp, datum.p, datum.pseq, IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob)
+
 
 if __name__=='__main__':
 	#load the model
@@ -149,7 +203,7 @@ if __name__=='__main__':
 		model = torch.load(args.model_path) #TODO
 	if args.dcModel:
 		print("loading dc_model")
-		dcModel = load_rb_dc_model_from_path(args.dc_model_path, args.max_length, args.max_index)
+		dcModel = load_rb_dc_model_from_path(args.dc_model_path, args.max_length, args.max_index, improved_dc_grammar, cuda=True)
 
 
 	print("data file:", args.precomputed_data_file)
@@ -157,6 +211,11 @@ if __name__=='__main__':
 		dataset = pickle.load(datafile)
 	# optional:
 	#dataset = random.shuffle(dataset)
+	if args.noise_eval:
+		random.seed(42)
+		import random
+		dataset = [randomize_datum(datum) for datum in dataset]
+
 	del dataset[args.n_test:]
 
 	results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel if args.dcModel else None)

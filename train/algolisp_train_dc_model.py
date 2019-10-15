@@ -23,24 +23,34 @@ from itertools import chain
 
 
 from grammar import Grammar, NoCandidates
-from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab
+from algolispPrimitives import algolispProductions, primitive_lookup, algolisp_input_vocab, algolisp_IO_vocab, digit_enc_vocab
 from program import Application, Hole, Primitive, Index, Abstraction, ParseFailure
 from type import Context, arrow, tint, tlist, tbool, UnificationFailure
 #from util.deepcoder_util import parseprogram, grammar
 from data_src.makeAlgolispData import batchloader, basegrammar
 
-from models.deepcoderModel import SketchFeatureExtractor, HoleSpecificFeatureExtractor, ImprovedRecognitionModel
+from models.deepcoderModel import SketchFeatureExtractor, HoleSpecificFeatureExtractor, ImprovedRecognitionModel, AlgolispIOFeatureExtractor
 
 #   from deepcoderModel import 
 
 
-def newDcModel(cuda=True):
-    input_vocab =  algolisp_input_vocab# TODO
-    algolisp_vocab =  list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
-    specExtractor = SketchFeatureExtractor(input_vocab, hidden=128, use_cuda=cuda) # Is this okay? max length
-    sketchExtractor = SketchFeatureExtractor(algolisp_vocab, hidden=128, use_cuda=cuda)
-    extractor = HoleSpecificFeatureExtractor(specExtractor, sketchExtractor, hidden=128, use_cuda=cuda)
-    dcModel = ImprovedRecognitionModel(extractor, basegrammar, hidden=[128], cuda=cuda, contextual=False)
+def newDcModel(cuda=True, IO2seq=False, digit_enc=False):
+    if IO2seq:
+        input_vocab = algolisp_IO_vocab() if not digit_enc else digit_enc_vocab()# TODO
+        algolisp_vocab =  list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
+        specExtractor = AlgolispIOFeatureExtractor(input_vocab, hidden=128, use_cuda=cuda, digit_enc=digit_enc) # Is this okay? max length
+        sketchExtractor = SketchFeatureExtractor(algolisp_vocab, hidden=128, use_cuda=cuda)
+        extractor = HoleSpecificFeatureExtractor(specExtractor, sketchExtractor, hidden=128, use_cuda=cuda)
+        dcModel = ImprovedRecognitionModel(extractor, basegrammar, hidden=[128], cuda=cuda, contextual=False)
+    else:
+        input_vocab =  algolisp_input_vocab# TODO
+        algolisp_vocab =  list(primitive_lookup.keys()) + ['(',')', '<HOLE>']
+        specExtractor = SketchFeatureExtractor(input_vocab, hidden=128, use_cuda=cuda) # Is this okay? max length
+        sketchExtractor = SketchFeatureExtractor(algolisp_vocab, hidden=128, use_cuda=cuda)
+        extractor = HoleSpecificFeatureExtractor(specExtractor, sketchExtractor, hidden=128, use_cuda=cuda)
+        dcModel = ImprovedRecognitionModel(extractor, basegrammar, hidden=[128], cuda=cuda, contextual=False)
+
+
     return(dcModel)
 
 if __name__ == "__main__":
@@ -49,7 +59,7 @@ if __name__ == "__main__":
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--nosave', action='store_true')
     parser.add_argument('-k', type=int, default=40) #TODO
-    parser.add_argument('--max_epochs', type=int, default=7)
+    parser.add_argument('--max_epochs', type=int, default=10)
     parser.add_argument('--save_model_path', type=str, default='./saved_models/algolisp_dc_model.p')
     parser.add_argument('--load_model_path', type=str, default='./saved_models/algolisp_dc_model.p')
     parser.add_argument('--new', action='store_true')
@@ -60,7 +70,36 @@ if __name__ == "__main__":
     parser.add_argument('--use_timeout', action='store_true', default=True)
     parser.add_argument('--filter_depth', nargs='+', type=int, default=None)
     parser.add_argument('--nHoles', type=int, default=1)
+    parser.add_argument('--limit_data', type=float, default=False)
+    parser.add_argument('--IO2seq', action='store_true')
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--use_dataset_len', type=int, default=False)
+
+    parser.add_argument('--exclude_odd', action='store_true')
+    parser.add_argument('--exclude_even', action='store_true')
+    parser.add_argument('--exclude_geq', action='store_true')
+    parser.add_argument('--exclude_gt', action='store_true')
+
+    parser.add_argument('--digit_enc', action='store_true')
+    parser.add_argument('--limit_IO_size', type=int, default=None)
     args = parser.parse_args()
+
+    assert not (args.exclude_even and args.exclude_odd)
+
+    #xor all the options classes:
+    if any([args.exclude_even, args.exclude_odd, args.exclude_geq]):
+        assert (args.exclude_even or args.exclude_odd) != args.exclude_geq
+
+    if args.exclude_odd:
+        exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "1"]] ]
+    elif args.exclude_even: 
+        exclude = [ ["lambda1", ["==", ["%", "arg1", "2"], "0"]] ] 
+    elif args.exclude_geq:
+        exclude = [">="]
+    elif args.exclude_gt:
+        exclude = [">"]
+    else: 
+        exclude = None
 
     batchsize = 1
     max_epochs = args.max_epochs
@@ -79,7 +118,7 @@ if __name__ == "__main__":
     try:
         if args.new:
             raise FileNotFoundError
-        dcModel=newDcModel()
+        dcModel=newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
         dcModel.load_state_dict(torch.load(args.load_model_path))
         print('found saved dcModel, loading ...')
     except FileNotFoundError:
@@ -89,7 +128,7 @@ if __name__ == "__main__":
         #extractor = LearnedFeatureExtractor(deepcoder_io_vocab, hidden=128)
         #dcModel = DeepcoderRecognitionModel(extractor, grammar, hidden=[128], cuda=True)
 
-        dcModel = newDcModel()
+        dcModel = newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
 
     print("number of parameters is", sum(p.numel() for p in dcModel.parameters() if p.requires_grad))
 
@@ -117,11 +156,18 @@ if __name__ == "__main__":
                                                 sample_fn=None,
                                                 nHoles=args.nHoles,
                                                 use_timeout=args.use_timeout,
-                                                filter_depth=args.filter_depth)): #TODO
+                                                filter_depth=args.filter_depth,
+                                                limit_data=args.limit_data,
+                                                seed=args.seed,
+                                                use_dataset_len=args.use_dataset_len,
+                                                limit_IO_size=args.limit_IO_size,
+                                                exclude=exclude)): #TODO
+
+            spec = datum.spec if not args.IO2seq else datum.IO
             t = time.time()
             t3 = t-t2
             #score = dcModel.optimizer_step(datum.IO, datum.p, datum.tp) #TODO make sure inputs are correctly formatted
-            score = dcModel.optimizer_step((datum.spec, datum.sketchseq), datum.p, datum.sketch, datum.tp)
+            score = dcModel.optimizer_step((spec, datum.sketchseq), datum.p, datum.sketch, datum.tp)
             t2 = time.time()
 
             dcModel.scores.append(score)

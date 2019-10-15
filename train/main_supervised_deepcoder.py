@@ -29,7 +29,7 @@ from deepcoderPrimitives import deepcoderProductions, flatten_program
 from utilities import timing
 
 from data_src.makeDeepcoderData import batchloader
-from util.deepcoder_util import parseprogram, grammar, tokenize_for_robustfill
+from util.deepcoder_util import parseprogram, basegrammar, tokenize_for_robustfill, deepcoder_vocab
 
 
 
@@ -56,11 +56,11 @@ parser.add_argument('--variance_reduction', action='store_true')
 parser.add_argument('-k', type=int, default=50) #TODO
 parser.add_argument('--new', action='store_true')
 parser.add_argument('--rnn_max_length', type=int, default=30)
-parser.add_argument('--batchsize', type=int, default=200)
+parser.add_argument('--batchsize', type=int, default=50)
 parser.add_argument('--Vrange', type=int, default=128)
 parser.add_argument('--n_examples', type=int, default=5)
 parser.add_argument('--max_list_length', type=int, default=10)
-parser.add_argument('--max_n_inputs', type=int, default=3)
+parser.add_argument('--max_n_inputs', type=int, default=2)
 parser.add_argument('--max_pretrain_epochs', type=int, default=10)
 parser.add_argument('--max_pretrain_iterations', type=int, default=100000)
 parser.add_argument('--max_iterations', type=int, default=100000)
@@ -68,24 +68,27 @@ parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--train_data', nargs='*', 
     default=['data/DeepCoder_data/T2_A2_V512_L10_train.txt', 'data/DeepCoder_data/T3_A2_V512_L10_train_perm.txt'])
 # save and load files
-parser.add_argument('--load_pretrained_model_path', type=str, default="./saved_models/deepcoder_pretrained.p")
-parser.add_argument('--save_pretrained_model_path', type=str, default="./saved_models/deepcoder_pretrained.p")
-parser.add_argument('--save_model_path', type=str, default="./saved_models/deepcoder_holes.p")
-parser.add_argument('--save_freq', type=int, default=200)
+parser.add_argument('--load_pretrained_model_path', type=str, default="./saved_models/list_pretrained.p")
+parser.add_argument('--save_pretrained_model_path', type=str, default="./saved_models/list_pretrained.p")
+parser.add_argument('--save_model_path', type=str, default="./saved_models/list_holes.p")
+parser.add_argument('--save_freq', type=int, default=400)
 parser.add_argument('--print_freq', type=int, default=1)
 parser.add_argument('--top_k_sketches', type=int, default=100)
 parser.add_argument('--inv_temp', type=float, default=1.0)
 parser.add_argument('--use_rl', action='store_true')
 parser.add_argument('--imp_weight_trunc', action='store_true')
 parser.add_argument('--rl_no_syntax', action='store_true')
-parser.add_argument('--use_dc_grammar', type=str, default='NA')
+parser.add_argument('--use_dc_grammar', type=str, default='NA') #
 parser.add_argument('--rl_lr', type=float, default=0.001)
 parser.add_argument('--reward_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
 parser.add_argument('--sample_fn', type=str, default='original', choices=['original','linear','exp', 'flat'])
 parser.add_argument('--r_max', type=int, default=8)
 parser.add_argument('--timing', action='store_true')
 parser.add_argument('--num_half_lifes', type=float, default=4)
-parser.add_argument('--use_timeout', action='store_true')
+parser.add_argument('--use_timeout', action='store_true', default=True)
+parser.add_argument('--improved_dc_model', action='store_true')
+parser.add_argument('--nHoles', type=int, default=3)
+parser.add_argument('--dcModelcpu', action='store_true')
 args = parser.parse_args()
 
 #assume we want num_half_life half lives to occur by the r_max value ...
@@ -110,6 +113,8 @@ batchsize = args.batchsize
 Vrange = args.Vrange
 train_datas = args.train_data
 
+if args.improved_dc_model: assert not args.use_dc_grammar == 'NA'
+
 if args.use_dc_grammar == 'NA':
     use_dc_grammar = False
     dc_grammar_path = None
@@ -117,10 +122,7 @@ else:
     use_dc_grammar = True
     dc_model_path = args.use_dc_grammar
 
-
-def deepcoder_vocab(grammar, n_inputs=args.max_n_inputs): 
-    return [prim.name for prim in grammar.primitives] + ['input_' + str(i) for i in range(n_inputs)] + ['<HOLE>']  # TODO
-vocab = deepcoder_vocab(grammar)
+vocab = deepcoder_vocab(basegrammar, n_inputs=args.max_n_inputs)
 
 if __name__ == "__main__":
     print("Loading model", flush=True)
@@ -145,6 +147,8 @@ if __name__ == "__main__":
     if use_dc_grammar:
         print("loading dc model")
         dc_model=torch.load(dc_model_path)
+        if args.dcModelcpu:
+            dc_model.cpu()
 
     model.cuda()
     print("number of parameters is", sum(p.numel() for p in model.parameters() if p.requires_grad))
@@ -169,6 +173,8 @@ if __name__ == "__main__":
         if pretraining: print(f"\tpretraining epoch {j}:")
         else: print(f"\ttraining epoch {j}:")
         path = args.save_pretrained_model_path if pretraining else args.save_model_path
+
+        #TODO: fix the batch loader:
         for i, batch in enumerate(batchloader(train_datas,
                                                 batchsize=batchsize,
                                                 N=args.n_examples,
@@ -180,7 +186,10 @@ if __name__ == "__main__":
                                                 inv_temp=args.inv_temp,
                                                 reward_fn=reward_fn,
                                                 sample_fn=sample_fn,
-                                                use_timeout=args.use_timeout)):
+                                                use_timeout=args.use_timeout,
+                                                improved_dc_model=args.improved_dc_model,
+                                                nHoles=args.nHoles)):
+
             IOs = tokenize_for_robustfill(batch.IOs)
             if args.timing: t = time.time()
             objective, syntax_score = model.optimiser_step(IOs, batch.pseqs if pretraining else batch.sketchseqs)
