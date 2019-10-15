@@ -305,10 +305,10 @@ if __name__=='__main__':
 		print("loading dcModel")
 		
 		if args.cpu:
-			dcModel=newDcModel(cuda=False, digit_enc=args.digit_enc)
+			dcModel=newDcModel(cuda=False, IO2seq=args.IO2seq, digit_enc=args.digit_enc)
 			dcModel.load_state_dict(torch.load(args.dcModel_path, map_location=lambda storage, loc: storage))
 		else:
-			dcModel=newDcModel(digit_enc=args.digit_enc)
+			dcModel=newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
 			dcModel.load_state_dict(torch.load(args.dcModel_path))
 			dcModel.cuda()
 	else: dcModel = None

@@ -11,11 +11,11 @@ if [[ "$@" == "--inner" ]]; then
 	#echo "pretraining job: $RES_PRE"
 
 	# train dc_model:
-	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/robustfill_train_dc_model.py --max_iteration 1500000 --inv_temp 0.05 --nHoles 3 -k 50 --improved_dc_model --input_noise --load_model_path ../rb_multihole_1experiment_1545242661738/saved_models/algolisp_dc_model.p) #or not.. --use_dc_grammar
+	RES_DC=$(sbatch --parsable -e 'dctrain.out' -o 'dctrain.out' execute_gpu.sh python train/robustfill_train_dc_model.py --max_iteration 1200000 --inv_temp 0.05 --nHoles 3 -k 50 --improved_dc_model --input_noise --load_model_path ../rb_multihole_1experiment_1545242661738/saved_models/algolisp_dc_model.p) #or not.. --use_dc_grammar
  	echo "dc model training job: $RES_DC"
 
 	# train model:
-	RES_TRAIN=$(sbatch --parsable --dependency=afterok:$RES_DC -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_robustfill.py --use_dc_grammar './saved_models/text_dc_model.p' --improved_dc_model --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --timing --max_iteration 15000 --input_noise --load_trained_model_path ../rb_multihole_1experiment_1545242661738/saved_models/robustfill_pretrained.p)
+	RES_TRAIN=$(sbatch --parsable -e 'train.out' -o 'train.out' execute_gpu.sh python train/main_supervised_robustfill.py --use_dc_grammar './saved_models/text_dc_model.p' --improved_dc_model --inv_temp 0.25 --nHoles 3 -k 50 --use_timeout --timing --max_iteration 15000 --input_noise --load_trained_model_path ../rb_multihole_1experiment_1545242661738/saved_models/robustfill_pretrained.p)
 
 	# test model
 	echo "Eval job:"

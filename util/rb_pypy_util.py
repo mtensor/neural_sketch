@@ -3,6 +3,7 @@
 import sys
 import os
 sys.path.append(os.path.abspath('./'))
+sys.path.append(os.path.abspath('./ec'))
 
 import time
 from program import ParseFailure, Context
@@ -11,7 +12,7 @@ from utilities import timing, callCompiled
 from collections import namedtuple
 from itertools import islice, zip_longest
 from functools import reduce
-from ec.RobustFillPrimitives import robustFillPrimitives, RobustFillProductions
+from RobustFillPrimitives import robustFillPrimitives, RobustFillProductions
 from util.pypy_util import alternate
 
 #A nasty hack!!!
@@ -25,14 +26,21 @@ basegrammar = Grammar.fromProductions(RobustFillProductions(max_len, max_index))
 SketchTup = namedtuple("SketchTup", ['sketch', 'g'])
 RobustFillResult = namedtuple("RobustFillResult", ["sketch", "prog", "hit", "n_checked", "time", "g_hit"])
 
-def test_program_on_IO(e, IO, n_rec_examples, generalization=False):
+def test_program_on_IO(e, IO, n_rec_examples, generalization=False, noise=False):
 	examples = IO if generalization else IO[:n_rec_examples]
+	
+	if noise:
+		l = len(examples)
+		try: 
+			return sum(e(x)==y for x, y in examples) >= l - 1  #TODO: check that this makes sense
+		except IndexError:
+			return False
 	try: 
 		return all(e(x)==y for x, y in examples)  #TODO: check that this makes sense
 	except IndexError:
 		return False
 
-def rb_enumerate(tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, test_generalization, n_rec_examples):
+def rb_enumerate(tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, test_generalization, n_rec_examples, input_noise=False):
 	results = []
 
 	results = []
@@ -44,7 +52,7 @@ def rb_enumerate(tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, tes
 		_, _, p = x
 		e = p.evaluate([])
 		try:
-			hit = test_program_on_IO(e, IO, n_rec_examples)
+			hit = test_program_on_IO(e, IO, n_rec_examples, noise=input_noise)
 		except: hit = False
 		prog = p if hit else None
 		n_checked += 1
@@ -58,5 +66,5 @@ def rb_enumerate(tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, tes
 	return results, n_checked, n_hit
 
 
-def rb_pypy_enumerate(tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, test_generalization, n_rec_examples):
-	return callCompiled(rb_enumerate, tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, test_generalization, n_rec_examples)
+def rb_pypy_enumerate(tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, test_generalization, n_rec_examples, input_noise=False):
+	return callCompiled(rb_enumerate, tp, IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, test_generalization, n_rec_examples, input_noise=input_noise)

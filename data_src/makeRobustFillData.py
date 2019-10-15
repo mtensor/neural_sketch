@@ -77,15 +77,27 @@ def sample_datum(basegrammar,
 		i_or_o = random.choice(range(2))
 
 		old = IO[ex][i_or_o]
-		idx = random.choice( range(len(old)) )
 
-		mut = random.choice(range(3))
-		if mut ==0: #removal
-			IO[ex][i_or_o] = old[:idx]  + old[idx+1:]
-		elif mut==1: #sub
-			IO[ex][i_or_o] = old[:idx] + [replace_with] + old[idx+1:]
-		else: #insertion
-			IO[ex][i_or_o] = old[:idx] + [replace_with] + old[idx:]
+		IO[ex] = list(IO[ex])
+
+		ln = len(old)
+		if ln >= 1:
+			idx = random.choice( range(ln) )
+
+
+			mut = random.choice(range(3))
+
+			if type(IO[ex]) == tuple:
+				IO[ex] = list(IO[ex])
+
+			if mut ==0: #removal
+				IO[ex][i_or_o] = old[:idx]  + old[idx+1:]
+			elif mut==1: #sub
+				IO[ex][i_or_o] = old[:idx] + replace_with + old[idx+1:]
+			else: #insertion
+				IO[ex][i_or_o] = old[:idx] + replace_with + old[idx:]
+
+		IO[ex] = tuple(IO[ex])
 
 	IO = tuple(IO)
 	# find tp

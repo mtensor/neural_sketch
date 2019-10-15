@@ -108,6 +108,7 @@ def convert_datum(ex,
 				#include_all=None,
 				use_fixed_seed=False,
 				limit_IO_size=None,
+				use_IO=False,
 				rng=None):
 	if filter_depth:
 		#filter_depth should be an iterable of depths that are allowed
@@ -157,7 +158,7 @@ def convert_datum(ex,
 	if compute_sketches:
 		# find sketch
 		#grammar = basegrammar if not dc_model else dc_model.infer_grammar(IO) #This line needs to change
-		dc_input = spec
+		dc_input = spec if not use_IO else IO
 		sketch, reward, sketchprob = make_holey_algolisp(p,
 														top_k_sketches,
 														tp,
@@ -200,6 +201,7 @@ def batchloader(data_file,
 				include_only=None,
 				include_all=None,
 				limit_IO_size=None,
+				use_IO=False,
 				seed=42):
 	"""
 	Note: exclude and include_only take lists of expressions!!! don't get confused
@@ -260,6 +262,7 @@ def batchloader(data_file,
 			include_only=include_only,
 			use_fixed_seed=use_fixed_seed,
 			limit_IO_size=limit_IO_size,
+			use_IO=use_IO,
 			rng=seeded_random if use_fixed_seed else None) for batch in NearDataset for ex in batch if not remove_datum() ) #I assume batch has one ex
 	data = (x for x in data if x is not None)
 	#figure out how to deal with these

@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
     if use_dc_grammar:
         print("loading dc model")
-        dc_model=newDcModel(IO2seq=args.IO2seq)
+        dc_model=newDcModel(IO2seq=args.IO2seq, digit_enc=args.digit_enc)
         dc_model.load_state_dict(torch.load(dc_model_path))
         dc_model.cuda()
 
@@ -246,6 +246,7 @@ if __name__ == "__main__":
                                                 limit_data=args.limit_data,
                                                 seed=args.seed,
                                                 use_dataset_len=args.use_dataset_len,
+                                                use_IO=args.IO2seq,
                                                 limit_IO_size=args.limit_IO_size,
                                                 exclude=exclude)):
             specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
@@ -295,6 +296,7 @@ if __name__ == "__main__":
                         use_fixed_seed=True,
                         seed=args.seed,
                         limit_IO_size=args.limit_IO_size,
+                        use_IO=args.IO2seq,
                         include_only=exclude): #TODO might not be correct to do this
                 specs = tokenize_for_robustfill(batch.specs) if not args.IO2seq else tokenize_IO_for_robustfill(batch.IOs, digit_enc=args.digit_enc)
                 val_objective_iter, _ = model.score(specs, batch.pseqs if pretraining else batch.sketchseqs)

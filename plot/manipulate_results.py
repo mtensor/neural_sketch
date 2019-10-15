@@ -6,6 +6,10 @@ sys.path.append(os.path.abspath('./ec'))
 
 import matplotlib
 matplotlib.use('Agg')
+#added for camera ready so there are no type 3 fonts
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+
 import matplotlib.pyplot as plt
 import dill
 import time

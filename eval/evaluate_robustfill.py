@@ -59,6 +59,7 @@ parser.add_argument('--resultsfile', type=str, default='NA')
 parser.add_argument('--test_generalization', action='store_true')
 parser.add_argument('--beam', action='store_true')
 parser.add_argument('--improved_dc_grammar', action='store_true')
+parser.add_argument('--noise_eval', action='store_true')
 #parallel stuff
 args = parser.parse_args()
 
@@ -117,7 +118,7 @@ def evaluate_datum(i, datum, model, dcModel, nRepeats, mdl, max_to_check):
 	#print(len(sketches))
 	#print(sketches)
 	#alternate which sketch to enumerate from each time
-	enum_results, n_checked, n_hit = rb_pypy_enumerate(datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, args.test_generalization, n_rec_examples)
+	enum_results, n_checked, n_hit = rb_pypy_enumerate(datum.tp, datum.IO, mdl, sketchtups, n_checked, n_hit, t, max_to_check, args.test_generalization, n_rec_examples, input_noise=args.noise_eval)
 	
 	######TODO: want search time and total time to hit task ######
 	print(f"task {i}:")
@@ -151,6 +152,42 @@ def save_results(results, args):
 		print("results file saved at", filename)
 	return savefile
 
+def randomize_IO(IO):
+	IO = list(IO)
+	import string
+	replace_with = random.choice(string.printable[:-4])
+	ex = random.choice(range(len(IO)))
+	i_or_o = random.choice(range(2))
+
+	old = IO[ex][i_or_o]
+
+	IO[ex] = list(IO[ex])
+
+	ln = len(old)
+	if ln >= 1:
+		idx = random.choice( range(ln) )
+
+		mut = random.choice(range(3))
+
+		if type(IO[ex]) == tuple:
+			IO[ex] = list(IO[ex])
+
+		if mut ==0: #removal
+			IO[ex][i_or_o] = old[:idx]  + old[idx+1:]
+		elif mut==1: #sub
+			IO[ex][i_or_o] = old[:idx] + replace_with + old[idx+1:]
+		else: #insertion
+			IO[ex][i_or_o] = old[:idx] + replace_with + old[idx:]
+
+	IO = tuple(IO)
+	return IO
+
+def randomize_datum(datum):
+	#class Datum():
+	#def __init__(self, tp, p, pseq, IO, sketch, sketchseq, reward, sketchprob):
+	IO = randomize_IO(datum.IO)
+	return Datum(datum.tp, datum.p, datum.pseq, IO, datum.sketch, datum.sketchseq, datum.reward, datum.sketchprob)
+
 
 if __name__=='__main__':
 	#load the model
@@ -174,6 +211,11 @@ if __name__=='__main__':
 		dataset = pickle.load(datafile)
 	# optional:
 	#dataset = random.shuffle(dataset)
+	if args.noise_eval:
+		random.seed(42)
+		import random
+		dataset = [randomize_datum(datum) for datum in dataset]
+
 	del dataset[args.n_test:]
 
 	results = evaluate_dataset(model, dataset, nSamples, mdl, max_to_check, dcModel=dcModel if args.dcModel else None)
